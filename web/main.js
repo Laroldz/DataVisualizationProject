@@ -138,6 +138,7 @@ function render() {
   drawLegend(color, norm);
   drawRanking(level, norm);
   drawPanel();
+  refreshCountyDetail();
   $("note").textContent = norm === "smoothed"
     ? `Smoothed rates use empirical Bayes: low-population ${level === "county" ? "counties are pulled toward their state's" : "states are pulled toward the national"} rate, so a single crash can't produce an extreme value. Colors are quantile bins (each holds ~1/7 of areas).`
     : norm === "rate"
@@ -269,6 +270,8 @@ function drawTrend(ser, measure) {
 function select(level, id) {
   state.selected = { level, id };
   render();
+  if (level === "county") showCountyDetail(id, nameOf("county", id));
+  else hideCountyDetail();
 }
 
 function tipAt(e, html) {
@@ -299,6 +302,7 @@ function reset() {
   state.selected = null;
   state.focusState = null;
   svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity);
+  hideCountyDetail();
   render();
 }
 

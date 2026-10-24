@@ -91,6 +91,26 @@ tbody tr { cursor: pointer; }
 tbody tr:hover { background: var(--page); }
 .num { text-align: right; }
 
+.detail { margin-top: 24px; scroll-margin-top: 16px; }
+.detail-head { display: flex; justify-content: space-between; align-items: start; gap: 16px; }
+.detail-grid { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 16px; align-items: start; }
+@media (max-width: 900px) { .detail-grid { grid-template-columns: 1fr; } }
+#roadmap { height: 560px; border-radius: 6px; background: var(--page); }
+.roads-head { display: flex; justify-content: space-between; align-items: center; }
+#roads tr.active td { background: var(--page); font-weight: 600; }
+#roads td:nth-child(2) { overflow-wrap: anywhere; }
+
+.leaflet-container { font: inherit; }
+.leaflet-tooltip.crash-tip {
+  background: var(--surface); color: var(--ink); border: 1px solid var(--axis);
+  border-radius: 6px; padding: 8px 10px; font-size: 12px; box-shadow: 0 2px 8px rgb(0 0 0 / 0.15);
+  font-variant-numeric: tabular-nums; min-width: 180px;
+}
+.leaflet-tooltip.crash-tip::before { display: none; }
+.crash-tip b { display: block; margin-bottom: 4px; }
+.crash-tip .row { display: flex; justify-content: space-between; gap: 16px; }
+.crash-tip .row span { color: var(--ink-2); }
+
 .tooltip {
   position: fixed; pointer-events: none; z-index: 10;
   background: var(--surface); color: var(--ink); border: 1px solid var(--axis);

@@ -14,8 +14,12 @@ Then open http://localhost:8000. The aggregated data in `web/data/` is committed
 
 ```
 python download.py            # raw FARS files -> FARS_Data/ (~6 GB, gitignored)
-python prep/build_data.py     # -> web/data/county_year.csv, state_year.csv
+python prep/build_data.py     # -> web/data/county_year.csv, state_year.csv, crashes/{fips}.json
 ```
+
+## County road view
+
+Click a county to open a street map of every fatal crash in it, with a ranked list of its deadliest roads. FARS has crash coordinates from 2001 onward (about 97% of crashes), so this view covers 2001–2024. Road names are normalized so variants group together (`I45`, `IH 45` and `I-45 E` all become `I-45`). Rankings are raw counts, because FARS has no per-road traffic volume.
 
 `build_data.py` downloads the SEER county population file into `prep/raw/` (also gitignored). It reconciles county codes that changed over time, such as Miami-Dade, Broomfield CO, Virginia independent cities, and the NYC and Hawaii groupings SEER used before 2000.
 

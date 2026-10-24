@@ -3,9 +3,12 @@
 Outputs (web/data/):
   county_year.csv  year,fips,crashes,fatals,pop
   state_year.csv   year,state,crashes,fatals,pop
+  crashes/{fips}.json  every geolocated crash in the county (2001+, when FARS has coordinates)
 """
 import gzip
 import json
+import re
+import shutil
 import urllib.request
 from pathlib import Path
 
@@ -16,6 +19,7 @@ FARS = ROOT / "FARS_Data"
 RAW = ROOT / "prep" / "raw"
 OUT = ROOT / "web" / "data"
 YEARS = range(1975, 2025)
+POINT_YEARS = range(2001, 2025)
 
 SEER_URL = "https://seer.cancer.gov/popdata/yr1969_2024.20ages/us.1969_2024.20ages.adjusted.txt.gz"
 ATLAS_URL = "https://cdn.jsdelivr.net/npm/us-atlas@3/counties-10m.json"
@@ -68,15 +72,67 @@ def accident_file(year):
     raise FileNotFoundError(f"No accident file for {year}")
 
 
+POINT_COLS = ["LATITUDE", "LONGITUD", "MONTH", "HOUR", "LGT_COND", "TWAY_ID"]
+
+
 def load_fars():
     frames = []
     for year in YEARS:
         df = pd.read_csv(accident_file(year), encoding="latin-1", low_memory=False)
         df.columns = df.columns.str.replace("ï»¿", "").str.strip().str.upper()  # some years have a BOM
-        frames.append(df[["STATE", "COUNTY", "FATALS"]].assign(YEAR=year))
+        cols = ["STATE", "COUNTY", "FATALS"] + (POINT_COLS if year in POINT_YEARS else [])
+        frames.append(df[cols].assign(YEAR=year))
     df = pd.concat(frames)
     df["FIPS"] = (df.STATE * 1000 + df.COUNTY).replace(FARS_RECODE)
     return df
+
+
+ROUTE = re.compile(r"^(IH|I|US|SR|SH|CR|FM|RM|LP|SSR|STH|CTH)\s*-?\s*(\d+[A-Z]?)\b")
+WORDS = {"ROAD": "RD", "STREET": "ST", "AVENUE": "AVE", "BOULEVARD": "BLVD", "DRIVE": "DR",
+         "HIGHWAY": "HWY", "LANE": "LN", "PARKWAY": "PKWY", "NORTH": "N", "SOUTH": "S",
+         "EAST": "E", "WEST": "W", "INTERSTATE": "I", "LOOP": "LP"}
+
+
+def road_key(name):
+    """Collapse spelling variants so one road groups together, e.g.
+    'US- 150' / 'US150' -> 'US-150', 'US-31 BROADWAY AVE' -> 'US-31', 'CR-PLEASANT DR' -> 'PLEASANT DR'."""
+    s = re.sub(r"\s+", " ", str(name).upper()).strip()
+    if s in ("", "NAN"):
+        return "Unknown road"
+    s = " ".join(WORDS.get(w, w) for w in s.split(" "))
+    for _ in range(2):  # second pass after stripping a prefix, e.g. 'US-SR 42' -> 'SR-42'
+        m = ROUTE.match(s)
+        if m:
+            prefix = "I" if m[1] == "IH" else m[1]
+            return f"{prefix}-{m[2]}"
+        s = re.sub(r"^[A-Z]{2,3}-(?=[A-Z])", "", s)  # route-type prefix on a named road
+    if s.isdigit():
+        return f"Road code {s}"
+    return s
+
+
+def write_points(fars):
+    pts = fars[fars.YEAR.isin(POINT_YEARS)].copy()
+    pts["LATITUDE"] = pd.to_numeric(pts.LATITUDE, errors="coerce")
+    pts["LONGITUD"] = pd.to_numeric(pts.LONGITUD, errors="coerce")
+    # 77.7777 / 88.8888 / 99.9999 etc. are "not reported" codes
+    pts = pts[pts.LATITUDE.between(17, 72) & pts.LONGITUD.between(-180, -64)]
+    pts["ROAD"] = pts.TWAY_ID.map(road_key)
+
+    out = OUT / "crashes"
+    shutil.rmtree(out, ignore_errors=True)
+    out.mkdir(parents=True)
+    for fips, g in pts.groupby("FIPS"):
+        roads = sorted(g.ROAD.unique())
+        idx = {r: i for i, r in enumerate(roads)}
+        rows = [[round(r.LATITUDE, 5), round(r.LONGITUD, 5), int(r.YEAR), int(r.MONTH), int(r.HOUR),
+                 int(r.FATALS), idx[r.ROAD], int(r.LGT_COND)] for r in g.itertuples()]
+        with open(out / f"{fips}.json", "w") as f:
+            json.dump({"fields": ["lat", "lon", "year", "month", "hour", "fatals", "road", "light"],
+                       "roads": roads, "crashes": rows}, f, separators=(",", ":"))
+    total = len(fars[fars.YEAR.isin(POINT_YEARS)])
+    print(f"Wrote {len(pts):,} of {total:,} crashes ({len(pts) / total:.1%}) with coordinates "
+          f"to {out.relative_to(ROOT)}")
 
 
 def load_population():
@@ -128,6 +184,7 @@ def main():
     OUT.mkdir(parents=True, exist_ok=True)
     county.to_csv(OUT / "county_year.csv", index=False)
     state.to_csv(OUT / "state_year.csv", index=False)
+    write_points(fars)
 
     # Sanity report
     nat = state.groupby("year")[["fatals", "pop"]].sum()

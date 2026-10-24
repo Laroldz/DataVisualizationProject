@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>U.S. Traffic Fatality Explorer</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -57,10 +58,33 @@
     </aside>
   </main>
 
+  <section id="detail" class="detail" hidden>
+    <div class="detail-head">
+      <div>
+        <h2 id="d-title"></h2>
+        <p id="d-sub" class="sub"></p>
+      </div>
+      <button id="d-back" type="button">↑ Back to map</button>
+    </div>
+    <div class="detail-grid">
+      <div class="map-card"><div id="roadmap"></div></div>
+      <section class="card">
+        <div class="roads-head">
+          <h2 id="roads-title">Deadliest roads</h2>
+          <button id="d-clear" type="button">Show all</button>
+        </div>
+        <table id="roads"><thead><tr><th>#</th><th>Road</th><th class="num">Crashes</th><th class="num">Deaths</th></tr></thead><tbody></tbody></table>
+        <p class="note">Click a road to highlight its crashes, or click a dot to highlight its road. Dot size shows deaths per crash. Rankings are raw counts: FARS has no per-road traffic volume, so busy highways naturally rank high.</p>
+      </section>
+    </div>
+  </section>
+
   <div id="tooltip" class="tooltip" hidden></div>
 
   <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="main.js"></script>
+  <script src="county.js"></script>
 </body>
 </html>
