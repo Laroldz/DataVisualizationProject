@@ -2,3 +2,4 @@ FARS_Data/
 __pycache__/
 *.pyc
 .venv/
+prep/raw/

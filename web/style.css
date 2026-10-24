@@ -1,0 +1,102 @@
+:root {
+  --page: #f9f9f7;
+  --surface: #fcfcfb;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: #e1e0d9;
+  --series-1: #2a78d6;
+  --nodata: #e1e0d9;
+  --highlight: #0b0b0b;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --ink: #f0efec;
+    --ink-2: #c3c2b7;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --border: #2c2c2a;
+    --series-1: #3987e5;
+    --nodata: #2c2c2a;
+    --highlight: #f0efec;
+  }
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  padding: 16px;
+  background: var(--page);
+  color: var(--ink);
+  font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+h1 { font-size: 22px; margin: 0; }
+h2 { font-size: 15px; margin: 0 0 8px; }
+.sub { color: var(--ink-2); margin: 4px 0 12px; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: end; margin-bottom: 12px; }
+.controls label { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--ink-2); }
+select, button {
+  font: inherit; color: var(--ink); background: var(--surface);
+  border: 1px solid var(--axis); border-radius: 6px; padding: 4px 8px;
+}
+button { cursor: pointer; }
+
+main { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 16px; align-items: start; }
+@media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+
+.map-card, .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+.card + .card { margin-top: 16px; }
+#map { width: 100%; height: auto; display: block; cursor: grab; }
+
+.area { stroke: var(--surface); stroke-width: 0.3; vector-effect: non-scaling-stroke; cursor: pointer; }
+.area.nodata { fill: var(--nodata); }
+.area:hover { stroke: var(--highlight); stroke-width: 1.5; }
+.borders { fill: none; stroke: var(--surface); stroke-width: 1.2; vector-effect: non-scaling-stroke; pointer-events: none; }
+.selected-outline { fill: none; stroke: var(--highlight); stroke-width: 2; vector-effect: non-scaling-stroke; pointer-events: none; }
+
+.legend { display: flex; flex-wrap: wrap; align-items: center; gap: 0; margin-top: 8px; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.legend .title { color: var(--ink-2); margin-right: 8px; font-size: 12px; }
+.legend .bin { display: flex; flex-direction: column; min-width: 52px; }
+.legend .sw { height: 10px; margin-right: 2px; }
+.legend .nd { margin-left: 12px; display: flex; align-items: center; gap: 4px; }
+.legend .nd i { width: 12px; height: 10px; background: var(--nodata); display: inline-block; }
+.note { color: var(--muted); font-size: 12px; margin: 8px 0 0; }
+
+.stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px 12px; margin-bottom: 8px; font-variant-numeric: tabular-nums; }
+.stats div { display: flex; flex-direction: column; }
+.stats span { color: var(--muted); font-size: 11px; }
+.stats b { font-size: 16px; font-weight: 600; }
+
+#trend { width: 100%; height: auto; display: block; overflow: visible; }
+#trend text { fill: var(--muted); font-size: 10px; }
+#trend .grid line { stroke: var(--grid); }
+#trend .grid .domain { display: none; }
+#trend .series { fill: none; stroke: var(--series-1); stroke-width: 2; }
+#trend .national { fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 4 3; }
+#trend .range { fill: var(--grid); opacity: 0.6; }
+#trend .label { font-size: 11px; }
+#trend .label.sel { fill: var(--ink); }
+#trend .cross { stroke: var(--axis); }
+#trend .dot { fill: var(--series-1); stroke: var(--surface); stroke-width: 2; }
+
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th { text-align: left; font-weight: 500; color: var(--muted); font-size: 11px; border-bottom: 1px solid var(--border); padding: 4px; }
+td { padding: 4px; border-bottom: 1px solid var(--border); }
+tbody tr { cursor: pointer; }
+tbody tr:hover { background: var(--page); }
+.num { text-align: right; }
+
+.tooltip {
+  position: fixed; pointer-events: none; z-index: 10;
+  background: var(--surface); color: var(--ink); border: 1px solid var(--axis);
+  border-radius: 6px; padding: 8px 10px; font-size: 12px; box-shadow: 0 2px 8px rgb(0 0 0 / 0.15);
+  font-variant-numeric: tabular-nums; max-width: 260px;
+}
+.tooltip b { display: block; margin-bottom: 4px; }
+.tooltip .row { display: flex; justify-content: space-between; gap: 16px; }
+.tooltip .row span { color: var(--ink-2); }

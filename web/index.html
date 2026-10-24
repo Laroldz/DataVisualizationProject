@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>U.S. Traffic Fatality Explorer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>U.S. Traffic Fatality Explorer</h1>
+    <p class="sub">Fatal motor-vehicle crashes (NHTSA FARS) by state and county, normalized by population (NCI SEER).</p>
+  </header>
+
+  <form id="controls" class="controls" onsubmit="return false">
+    <label>Level
+      <select id="level">
+        <option value="county">County</option>
+        <option value="state">State</option>
+      </select>
+    </label>
+    <label>Measure
+      <select id="measure">
+        <option value="fatals">Fatalities</option>
+        <option value="crashes">Fatal crashes</option>
+      </select>
+    </label>
+    <label>Show
+      <select id="norm">
+        <option value="smoothed">Smoothed rate per 100k</option>
+        <option value="rate">Rate per 100k</option>
+        <option value="count">Raw count</option>
+      </select>
+    </label>
+    <label>From <select id="y0"></select></label>
+    <label>To <select id="y1"></select></label>
+    <button id="reset" type="button">Reset view</button>
+  </form>
+
+  <main>
+    <section class="map-card">
+      <svg id="map" viewBox="0 0 975 610" role="img" aria-label="Choropleth map of the United States"></svg>
+      <div id="legend" class="legend"></div>
+      <p class="note" id="note"></p>
+    </section>
+
+    <aside>
+      <section class="card">
+        <h2 id="sel-title">United States</h2>
+        <div id="sel-stats" class="stats"></div>
+        <svg id="trend" viewBox="0 0 360 200" role="img" aria-label="Rate per 100k by year"></svg>
+      </section>
+      <section class="card">
+        <h2 id="rank-title">Top 10</h2>
+        <table id="rank"><thead><tr><th>#</th><th>Area</th><th class="num" id="rank-col">Value</th><th class="num">Pop.</th></tr></thead><tbody></tbody></table>
+      </section>
+    </aside>
+  </main>
+
+  <div id="tooltip" class="tooltip" hidden></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>
