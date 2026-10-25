@@ -1,1 +1,1 @@
-{"fields":["lat","lon","year","month","hour","fatals","road","light"],"roads":["MINERAL CREEK LP RD"],"crashes":[[61.12184,-146.27316,2023,7,23,1,0,5]]}
+{"fields":["lat","lon","year","month","hour","fatals","road","cats","flags","dow"],"roads":["MINERAL CREEK LP RD"],"crashes":[[61.12184,-146.27316,2023,7,23,1,0,1283105,349530,7]]}

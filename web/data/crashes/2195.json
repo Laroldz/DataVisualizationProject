@@ -1,1 +1,1 @@
-{"fields":["lat","lon","year","month","hour","fatals","road","light"],"roads":["MITKOF HWY"],"crashes":[[56.54128,-132.67524,2020,7,99,4,0,5]]}
+{"fields":["lat","lon","year","month","hour","fatals","road","cats","flags","dow"],"roads":["MITKOF HWY"],"crashes":[[56.54128,-132.67524,2020,7,99,4,0,1343777,349530,3]]}

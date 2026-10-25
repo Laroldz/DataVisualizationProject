@@ -1,1 +1,1 @@
-{"fields":["lat","lon","year","month","hour","fatals","road","light"],"roads":["JOHNSBURG RD","Y"],"crashes":[[43.83332,-87.78105,2012,6,18,1,1,2],[43.87745,-88.33829,2012,7,99,1,0,2]]}
+{"fields":["lat","lon","year","month","hour","fatals","road","cats","flags","dow"],"roads":["JOHNSBURG RD","Y"],"crashes":[[43.83332,-87.78105,2012,6,18,1,1,1339713,611733,4],[43.87745,-88.33829,2012,7,99,1,0,1343809,349782,1]]}

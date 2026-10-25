@@ -46,6 +46,20 @@ select, button {
 }
 button { cursor: pointer; }
 
+.filters { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; }
+.filters summary { cursor: pointer; font-weight: 600; }
+.badge { font-weight: 400; font-size: 12px; color: var(--ink-2); background: var(--page); border: 1px solid var(--border); border-radius: 10px; padding: 1px 8px; margin-left: 6px; }
+.filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 12px; }
+.filter-group { border: 1px solid var(--border); border-radius: 6px; margin: 0; padding: 6px 10px 10px; display: flex; flex-direction: column; gap: 6px; }
+.filter-group legend { font-size: 12px; color: var(--ink-2); padding: 0 4px; }
+.filter-group label { display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-2); }
+.filter-group select { width: 100%; padding: 2px 4px; }
+.filter-group select.on { border-color: var(--series-1); box-shadow: 0 0 0 1px var(--series-1); color: var(--ink); }
+.filter-foot { display: flex; gap: 12px; align-items: center; margin-top: 10px; }
+.gaps { color: var(--ink-2); font-size: 12px; margin: -4px 0 12px; }
+.gaps:empty { display: none; }
+select option:disabled { color: var(--muted); }
+
 main { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 16px; align-items: start; }
 @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
 

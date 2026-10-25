@@ -31,6 +31,7 @@
         <option value="smoothed">Smoothed rate per 100k</option>
         <option value="rate">Rate per 100k</option>
         <option value="count">Raw count</option>
+        <option value="share">Share matching filters (%)</option>
       </select>
     </label>
     <label>From <select id="y0"></select></label>
@@ -38,6 +39,19 @@
     <button id="reset" type="button">Reset view</button>
     <button id="to-route" type="button">Route explorer ↓</button>
   </form>
+
+  <details id="filters" class="filters">
+    <summary>Filter crashes by factor <span id="filter-count" class="badge">none</span></summary>
+    <div class="filter-body">
+      <div id="filter-grid" class="filter-grid"></div>
+      <div class="filter-foot">
+        <button id="filter-clear" type="button" hidden>Clear all filters</button>
+        <span id="filter-status" class="sub" aria-live="polite"></span>
+      </div>
+      <p class="note">Filters apply to the map, rankings, county road view and route explorer. "Involved" means at least one such person or vehicle was in the crash. Alcohol is a police-reported drinking driver; speeding is police-reported speeding-related. FARS changed how it codes some factors over the years; see the README for how they were matched up.</p>
+    </div>
+  </details>
+  <p id="filter-gaps" class="gaps"></p>
 
   <main>
     <section class="map-card">
@@ -115,6 +129,7 @@
   <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="filters.js"></script>
   <script src="main.js"></script>
   <script src="county.js"></script>
   <script src="route.js"></script>

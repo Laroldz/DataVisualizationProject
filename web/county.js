@@ -2,7 +2,6 @@
 // plus a ranking of the deadliest roads. Uses `ui`, `darkQuery`, fmtInt from main.js.
 
 const POINT_FIRST_YEAR = 2001;
-const LIGHT = { 1: "Daylight", 2: "Dark, not lighted", 3: "Dark, lighted", 4: "Dawn", 5: "Dusk", 6: "Dark, unknown lighting" };
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const HIGHLIGHT = { light: "#eb6834", dark: "#d95926" }; // categorical slot 2, distinct from the blue dots
 
@@ -105,9 +104,14 @@ function hideCountyDetail() {
   detail.request++;
 }
 
+// Row layout: [lat, lon, year, month, hour, fatals, road, cats, flags, dow]
+function crashMatches(c) {
+  return filters.match(c[7], c[8], c[4], c[9]);
+}
+
 function filteredCrashes() {
   const y0 = Math.max(+ui.y0.value, POINT_FIRST_YEAR), y1 = +ui.y1.value;
-  return detail.data.crashes.filter(c => c[2] >= y0 && c[2] <= y1);
+  return detail.data.crashes.filter(c => c[2] >= y0 && c[2] <= y1 && crashMatches(c));
 }
 
 // Called from main.js render() so the year range / measure controls apply here too.
@@ -120,7 +124,8 @@ function refreshCountyDetail() {
   $("d-sub").textContent = y1 < POINT_FIRST_YEAR
     ? `Crash locations are only recorded from ${POINT_FIRST_YEAR} on. Pick a later year range.`
     : `${fmtInt(crashes.length)} fatal crashes, ${fmtInt(deaths)} deaths, ${Math.max(y0, POINT_FIRST_YEAR)}–${y1}` +
-      (y0 < POINT_FIRST_YEAR ? ` (locations not recorded before ${POINT_FIRST_YEAR})` : "");
+      (y0 < POINT_FIRST_YEAR ? ` (locations not recorded before ${POINT_FIRST_YEAR})` : "") +
+      (filterActive() ? `. Filtered: ${filterSummary()}` : "");
 
   drawRoadTable(crashes);
   drawPoints();
@@ -161,12 +166,12 @@ function drawPoints() {
 }
 
 function crashTip(c, roads, extra = "") {
-  const [, , year, month, hour, fatals, road, light] = c;
+  const [, , year, month, hour, fatals, road, cats, flags] = c;
   const when = `${MONTHS[month - 1] ?? ""} ${year}` + (hour < 24 ? `, ${d3.timeFormat("%-I %p")(new Date(2000, 0, 1, hour))}` : "");
   return `<b>${roads[road]}</b>` + extra +
     `<div class="row"><span>When</span>${when}</div>` +
     `<div class="row"><span>Deaths</span>${fatals}</div>` +
-    `<div class="row"><span>Light</span>${LIGHT[light] ?? "Unknown"}</div>`;
+    describeCrash(cats, flags);
 }
 
 function highlightRoad(road, zoom) {

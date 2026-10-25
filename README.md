@@ -27,6 +27,19 @@ Click a county to open a street map of every fatal crash in it, with a ranked li
 
 Enter a start and a destination to see every fatal crash (2001+) within 50, 100 or 200 m of the driving route. The view includes a chart of crashes by mile along the route and a list of the deadliest stretches. Addresses are geocoded with OpenStreetMap Nominatim and routes come from the public OSRM demo server. Both are free, rate-limited services meant for light use, so they're fine for demos but not for heavy traffic. Crash matching runs in the browser against the per-county files in `web/data/crashes/`.
 
+## Factor filters
+
+The "Filter crashes by factor" panel narrows every view (map, rankings, trend chart, county road view and route explorer) by:
+
+- **Conditions:** weather, lighting, road surface
+- **Crash and road:** crash type (head-on, rear-end, angle, sideswipe, pedestrian, bicyclist, rollover, fixed object), road type, rural or urban
+- **When:** time of day, weekday or weekend
+- **Involved:** alcohol (police-reported drinking driver), speeding-related, pedestrian, bicyclist, motorcycle, large truck, hit-and-run, work zone, driver aged 15–20, driver aged 65+
+
+With a filter active, the map can also show **Share matching filters (%)**: the smoothed percentage of each area's fatal crashes that match the filters (e.g. where alcohol is most often involved).
+
+FARS changed how it records several of these over 1975–2024. `prep/factors.py` maps each era's codes onto one set of categories. For example, weather was renumbered in 2010, speeding moved from driver contributing-factor codes to `SPEEDREL` in 2009, the crash-level drinking-driver count was dropped after 2020, and vehicle body types were recoded in 1982 and 1991. A few factors aren't recorded in early years: road type before 1981, work zone before 1981, large trucks before 1982. The page warns when the selected years include such gaps. All factors are packed into two integers per crash in `web/data/crash_table.bin.gz` (about 2.2 million crashes), which the page loads the first time a filter is used.
+
 ## Normalization
 
 - **Rate per 100k / yr**: total events ÷ total person-years in the selected year range.

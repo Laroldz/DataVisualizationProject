@@ -4,6 +4,7 @@ Outputs (web/data/):
   county_year.csv  year,fips,crashes,fatals,pop
   state_year.csv   year,state,crashes,fatals,pop
   crashes/{fips}.json  every geolocated crash in the county (2001+, when FARS has coordinates)
+  crash_table.bin.gz + crash_table.json   every crash with its factors, for filtering (see factors.py)
 """
 import gzip
 import json
@@ -12,7 +13,10 @@ import shutil
 import urllib.request
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
+
+import factors
 
 ROOT = Path(__file__).resolve().parent.parent
 FARS = ROOT / "FARS_Data"
@@ -65,26 +69,75 @@ def download(url):
     return path
 
 
-def accident_file(year):
-    for p in (FARS / str(year) / "extracted").rglob("*"):
-        if p.name.lower() == "accident.csv":
-            return p
-    raise FileNotFoundError(f"No accident file for {year}")
+def read_fars(year, name, cols):
+    """Read the listed columns (those that exist that year) from one FARS table."""
+    path = next(p for p in (FARS / str(year) / "extracted").rglob("*") if p.name.lower() == f"{name}.csv")
+    header = pd.read_csv(path, nrows=0, encoding="latin-1").columns
+    clean = {c: c.replace("ï»¿", "").strip().upper() for c in header}  # some years have a BOM
+    use = [c for c in header if clean[c] in cols]
+    return pd.read_csv(path, usecols=use, encoding="latin-1", low_memory=False).rename(columns=clean)
 
 
-POINT_COLS = ["LATITUDE", "LONGITUD", "MONTH", "HOUR", "LGT_COND", "TWAY_ID"]
+ACCIDENT_COLS = ["ST_CASE", "STATE", "COUNTY", "FATALS", "MONTH", "DAY_WEEK", "HOUR",
+                 "LATITUDE", "LONGITUD", "TWAY_ID", "WEATHER", "LGT_COND", "SUR_COND", "HARM_EV",
+                 "MAN_COLL", "ROAD_FNC", "FUNC_SYS", "RUR_URB", "LAND_USE", "C_M_ZONE", "WRK_ZONE", "DRUNK_DR"]
+VEHICLE_COLS = ["ST_CASE", "VEH_NO", "BODY_TYP", "HIT_RUN", "DR_DRINK", "SPEEDREL", "VSURCOND",
+                "DR_CF1", "DR_CF2", "DR_CF3", "DR_CF4"]
+PERSON_COLS = ["ST_CASE", "PER_TYP", "AGE"]
 
 
 def load_fars():
     frames = []
     for year in YEARS:
-        df = pd.read_csv(accident_file(year), encoding="latin-1", low_memory=False)
-        df.columns = df.columns.str.replace("ï»¿", "").str.strip().str.upper()  # some years have a BOM
-        cols = ["STATE", "COUNTY", "FATALS"] + (POINT_COLS if year in POINT_YEARS else [])
-        frames.append(df[cols].assign(YEAR=year))
-    df = pd.concat(frames)
+        a = read_fars(year, "accident", ACCIDENT_COLS)
+        v = read_fars(year, "vehicle", VEHICLE_COLS)
+        p = read_fars(year, "person", PERSON_COLS)
+        cats, flags = factors.encode(a, v, p, year)
+        keep = [c for c in ["STATE", "COUNTY", "FATALS", "MONTH", "DAY_WEEK", "HOUR", "LATITUDE", "LONGITUD", "TWAY_ID"] if c in a]
+        frames.append(a[keep].assign(YEAR=year, CATS=cats, FLAGS=flags))
+        print(f"\r{year}", end="", flush=True)
+    print()
+    df = pd.concat(frames, ignore_index=True)
     df["FIPS"] = (df.STATE * 1000 + df.COUNTY).replace(FARS_RECODE)
     return df
+
+
+def write_table(fars):
+    """All crashes as a compact column-wise binary table for in-browser filtering:
+    cats u32, flags u32, county index u16, year-1975 u8, fatals u8, hour u8, day-of-week u8."""
+    fips = sorted(fars.FIPS.unique())
+    meta = {
+        "rows": len(fars), "firstYear": YEARS[0], "fips": [int(f) for f in fips],
+        "columns": [["cats", "u32"], ["flags", "u32"], ["county", "u16"], ["year", "u8"],
+                    ["fatals", "u8"], ["hour", "u8"], ["dow", "u8"]],
+        "availability": availability(fars),
+        "categories": factors.CATEGORIES, "catBits": factors.CAT_BITS, "flags": factors.FLAGS,
+    }
+    hour = fars.HOUR.where(fars.HOUR.between(0, 23), 255)
+    dow = fars.DAY_WEEK.where(fars.DAY_WEEK.between(1, 7), 0)
+    cols = [fars.CATS.astype("<u4"), fars.FLAGS.astype("<u4"),
+            fars.FIPS.map({f: i for i, f in enumerate(fips)}).astype("<u2"),
+            (fars.YEAR - YEARS[0]).astype("u1"), fars.FATALS.clip(upper=255).astype("u1"),
+            hour.astype("u1"), dow.astype("u1")]
+    with gzip.open(OUT / "crash_table.bin.gz", "wb", compresslevel=9) as f:
+        for c in cols:
+            f.write(np.ascontiguousarray(c.to_numpy()).tobytes())
+    with open(OUT / "crash_table.json", "w") as f:
+        json.dump(meta, f, separators=(",", ":"))
+    print(f"Wrote crash table: {len(fars):,} rows, "
+          f"{(OUT / 'crash_table.bin.gz').stat().st_size / 1e6:.1f} MB gzipped")
+
+
+def availability(fars):
+    """Years in which each factor is recorded for at least half of crashes."""
+    out = {}
+    cats, flags = fars.CATS.to_numpy(), fars.FLAGS.to_numpy()
+    fields = [(name, cats, factors.CAT_BITS * i, 0xF) for i, name in enumerate(factors.CATEGORIES)] + \
+             [(name, flags, 2 * i, 3) for i, name in enumerate(factors.FLAGS)]
+    for name, packed, shift, mask in fields:
+        share = pd.Series(((packed >> shift) & mask) > 0).groupby(fars.YEAR.to_numpy()).mean()
+        out[name] = [int(y) for y in share.index[share >= 0.5]]
+    return out
 
 
 ROUTE = re.compile(r"^(IH|I|US|SR|SH|CR|FM|RM|LP|SSR|STH|CTH)\s*-?\s*(\d+[A-Z]?)\b")
@@ -126,9 +179,9 @@ def write_points(fars):
         roads = sorted(g.ROAD.unique())
         idx = {r: i for i, r in enumerate(roads)}
         rows = [[round(r.LATITUDE, 5), round(r.LONGITUD, 5), int(r.YEAR), int(r.MONTH), int(r.HOUR),
-                 int(r.FATALS), idx[r.ROAD], int(r.LGT_COND)] for r in g.itertuples()]
+                 int(r.FATALS), idx[r.ROAD], int(r.CATS), int(r.FLAGS), int(r.DAY_WEEK)] for r in g.itertuples()]
         with open(out / f"{fips}.json", "w") as f:
-            json.dump({"fields": ["lat", "lon", "year", "month", "hour", "fatals", "road", "light"],
+            json.dump({"fields": ["lat", "lon", "year", "month", "hour", "fatals", "road", "cats", "flags", "dow"],
                        "roads": roads, "crashes": rows}, f, separators=(",", ":"))
     total = len(fars[fars.YEAR.isin(POINT_YEARS)])
     print(f"Wrote {len(pts):,} of {total:,} crashes ({len(pts) / total:.1%}) with coordinates "
@@ -185,6 +238,7 @@ def main():
     county.to_csv(OUT / "county_year.csv", index=False)
     state.to_csv(OUT / "state_year.csv", index=False)
     write_points(fars)
+    write_table(fars)
 
     # Sanity report
     nat = state.groupby("year")[["fatals", "pop"]].sum()

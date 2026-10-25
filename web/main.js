@@ -4,7 +4,10 @@ const RAMP_DARK = [...RAMP_LIGHT].reverse(); // low values recede into the dark 
 
 const fmtInt = d3.format(",");
 const fmtRate = d3.format(",.1f");
-const NORM_LABEL = { smoothed: "Smoothed rate per 100k / yr", rate: "Rate per 100k / yr", count: "Total" };
+const NORM_LABEL = {
+  smoothed: "Smoothed rate per 100k / yr", rate: "Rate per 100k / yr", count: "Total",
+  share: "Share matching the filters (smoothed %)",
+};
 const MEASURE_LABEL = { fatals: "fatalities", crashes: "fatal crashes" };
 
 const $ = id => document.getElementById(id);
@@ -13,7 +16,9 @@ const tooltip = $("tooltip");
 const darkQuery = matchMedia("(prefers-color-scheme: dark)");
 
 const state = { selected: null, focusState: null }; // selected = {level, id}
-let data, counties, states, nameOf, values, nationalSeries;
+// base = all crashes; cur = crashes matching the active filters (=== base when none are active).
+// Each is { county: Map, state: Map, national: series }.
+let base, cur, counties, states, nameOf, values;
 
 // ---------- data ----------
 
@@ -38,36 +43,86 @@ function sum(arr, i0, i1) {
   return t;
 }
 
-// Empirical Bayes (Marshall 1991, method of moments): shrink each unit's rate toward
-// its group's rate, by an amount that grows as the unit's population shrinks.
-function smooth(units) {
-  const E = d3.sum(units, u => u.E), P = d3.sum(units, u => u.P);
-  if (!P) return;
-  const m = E / P;
-  const s2 = d3.sum(units, u => u.P * (u.E / u.P - m) ** 2) / P;
-  const A = Math.max(0, s2 - m / (P / units.length));
+// Empirical Bayes (Marshall 1991, method of moments): shrink each unit's rate E/D toward
+// its group's rate, by an amount that grows as the unit's denominator D shrinks.
+function smooth(units, scale) {
+  const E = d3.sum(units, u => u.E), D = d3.sum(units, u => u.D);
+  if (!D) return;
+  const m = E / D;
+  const s2 = d3.sum(units, u => u.D * (u.E / u.D - m) ** 2) / D;
+  const A = Math.max(0, s2 - m / (D / units.length));
   for (const u of units) {
-    const w = A + m / u.P > 0 ? A / (A + m / u.P) : 1;
-    u.smoothed = (m + w * (u.E / u.P - m)) * 1e5;
+    const w = A + m / u.D > 0 ? A / (A + m / u.D) : 1;
+    u.smoothed = (m + w * (u.E / u.D - m)) * scale;
   }
 }
 
 function compute() {
   const level = ui.level.value, measure = ui.measure.value, norm = ui.norm.value;
   const i0 = +ui.y0.value - FIRST_YEAR, i1 = +ui.y1.value - FIRST_YEAR;
-  const source = level === "county" ? data.county : data.state;
+  const source = cur[level], all = base[level];
   const out = new Map();
   for (const [id, s] of source) {
     const P = sum(s.pop, i0, i1);
     if (!P) continue;
     const E = sum(s[measure], i0, i1);
-    out.set(id, { id, E, P, rate: E / P * 1e5 });
+    const a = all.get(id), total = a ? sum(a[measure], i0, i1) : 0;
+    if (norm === "share" && !total) continue;
+    // Share mode smooths the share of all crashes; otherwise the rate per resident.
+    out.set(id, { id, E, P, total, D: norm === "share" ? total : P, rate: E / P * 1e5, share: total ? E / total * 100 : null });
   }
   // County rates shrink toward their state; state rates shrink toward the nation.
   const groups = d3.group(out.values(), u => level === "county" ? Math.floor(u.id / 1000) : 0);
-  for (const g of groups.values()) smooth(g);
+  for (const g of groups.values()) smooth(g, norm === "share" ? 100 : 1e5);
   for (const u of out.values()) u.value = norm === "count" ? u.E : norm === "rate" ? u.rate : u.smoothed;
   return out;
+}
+
+// Per-area, per-year counts for crashes matching the active filters, from the crash table.
+function aggregate(t) {
+  const fresh = s => ({ crashes: new Float64Array(N), fatals: new Float64Array(N), pop: s?.pop ?? new Float64Array(N) });
+  const county = new Map([...base.county].map(([id, s]) => [id, fresh(s)]));
+  const st = new Map([...base.state].map(([id, s]) => [id, fresh(s)]));
+  const fips = filters.meta.fips, match = filters.match;
+  for (let i = 0; i < t.cats.length; i++) {
+    if (!match(t.cats[i], t.flags[i], t.hour[i], t.dow[i])) continue;
+    const id = fips[t.county[i]], y = t.year[i], f = t.fatals[i];
+    if (!county.has(id)) county.set(id, fresh());
+    const c = county.get(id); c.crashes[y]++; c.fatals[y] += f;
+    const sid = Math.floor(id / 1000);
+    if (!st.has(sid)) st.set(sid, fresh());
+    const s = st.get(sid); s.crashes[y]++; s.fatals[y] += f;
+  }
+  return { county, state: st, national: nationalOf(st) };
+}
+
+function nationalOf(stateMap) {
+  const nat = series();
+  for (const s of stateMap.values()) {
+    for (let i = 0; i < N; i++) {
+      nat.crashes[i] += s.crashes[i];
+      nat.fatals[i] += s.fatals[i];
+      nat.pop[i] += s.pop[i];
+    }
+  }
+  return nat;
+}
+
+async function applyFilters() {
+  const shareOpt = ui.norm.querySelector('option[value="share"]');
+  shareOpt.disabled = !filterActive();
+  if (!filterActive()) {
+    if (ui.norm.value === "share") ui.norm.value = "smoothed";
+    cur = base;
+    return render();
+  }
+  if (!filters.table) {
+    $("filter-status").textContent = "Loading crash details (one-time, about 8 MB)…";
+    await loadCrashTable();
+  }
+  $("filter-status").textContent = "";
+  cur = aggregate(filters.table);
+  render();
 }
 
 // ---------- map ----------
@@ -140,11 +195,15 @@ function render() {
   drawPanel();
   refreshCountyDetail();
   refreshRoute();
-  $("note").textContent = norm === "smoothed"
-    ? `Smoothed rates use empirical Bayes: low-population ${level === "county" ? "counties are pulled toward their state's" : "states are pulled toward the national"} rate, so a single crash can't produce an extreme value. Colors are quantile bins (each holds ~1/7 of areas).`
-    : norm === "rate"
-      ? "Unsmoothed rates: very small counties can show extreme values from just one or two crashes. Colors are quantile bins."
-      : "Raw counts mostly track population. Switch to a rate to compare areas fairly.";
+  updateFilterHeader(+ui.y0.value, +ui.y1.value);
+  const area = level === "county" ? "counties" : "states";
+  const toward = level === "county" ? "their state's" : "the national";
+  $("note").textContent = (filterActive() ? `Showing only crashes matching: ${filterSummary()}. ` : "") + ({
+    smoothed: `Smoothed rates use empirical Bayes: low-population ${area} are pulled toward ${toward} rate, so a single crash can't produce an extreme value.`,
+    rate: "Unsmoothed rates: very small counties can show extreme values from just one or two crashes.",
+    count: "Raw counts mostly track population. Switch to a rate to compare areas fairly.",
+    share: `Percent of all ${ui.measure.value === "fatals" ? "deaths" : "fatal crashes"} that match the filters, smoothed so ${area} with few crashes are pulled toward ${toward} share.`,
+  })[norm] + " Colors are quantile bins (each holds ~1/7 of areas).";
 }
 
 function drawOutline() {
@@ -174,7 +233,7 @@ function drawRanking(level, norm) {
   rows = rows.sort((a, b) => b.value - a.value).slice(0, 10);
   const where = level === "county" && state.focusState ? ` in ${nameOf("state", state.focusState)}` : "";
   $("rank-title").textContent = `Top 10 ${level === "county" ? "counties" : "states"}${where}`;
-  $("rank-col").textContent = norm === "count" ? "Total" : "Per 100k";
+  $("rank-col").textContent = { count: "Total", share: "Share %" }[norm] ?? "Per 100k";
   const nYears = +ui.y1.value - +ui.y0.value + 1;
   d3.select("#rank tbody").selectAll("tr").data(rows).join("tr")
     .on("click", (e, u) => select(level, u.id))
@@ -183,41 +242,46 @@ function drawRanking(level, norm) {
 
 // ---------- side panel ----------
 
-function selectedSeries() {
+function selectedSeries(src) {
   const s = state.selected;
-  if (!s) return null;
-  return (s.level === "county" ? data.county : data.state).get(s.id);
+  if (!s) return src.national;
+  return src[s.level].get(s.id) ?? series();
 }
 
 function drawPanel() {
-  const measure = ui.measure.value;
+  const measure = ui.measure.value, share = ui.norm.value === "share";
   const i0 = +ui.y0.value - FIRST_YEAR, i1 = +ui.y1.value - FIRST_YEAR, nYears = i1 - i0 + 1;
   const s = state.selected;
-  const ser = selectedSeries() ?? nationalSeries;
-  const E = sum(ser[measure], i0, i1), P = sum(ser.pop, i0, i1);
-  const natRate = sum(nationalSeries[measure], i0, i1) / sum(nationalSeries.pop, i0, i1) * 1e5;
+  const ser = selectedSeries(cur), all = selectedSeries(base);
+  const E = sum(ser[measure], i0, i1), P = sum(ser.pop, i0, i1), total = sum(all[measure], i0, i1);
+  const nat = cur.national;
+  const natRate = sum(nat[measure], i0, i1) / sum(nat.pop, i0, i1) * 1e5;
+  const natShare = sum(nat[measure], i0, i1) / sum(base.national[measure], i0, i1) * 100;
   const u = s && s.level === ui.level.value ? values.get(s.id) : null;
 
   $("sel-title").textContent = s ? nameOf(s.level, s.id) : "United States";
   const stats = [
-    [`Total ${MEASURE_LABEL[measure]}, ${ui.y0.value}–${ui.y1.value}`, fmtInt(E)],
-    ["Avg. population", d3.format(",.0f")(P / nYears)],
+    [`${filterActive() ? "Matching" : "Total"} ${MEASURE_LABEL[measure]}, ${ui.y0.value}–${ui.y1.value}`, fmtInt(E)],
+    filterActive() ? ["Share of all", total ? `${fmtRate(E / total * 100)}%` : "–"] : ["Avg. population", d3.format(",.0f")(P / nYears)],
     ["Rate per 100k / yr", P ? fmtRate(E / P * 1e5) : "–"],
-    s ? ["Smoothed rate", u?.smoothed != null ? fmtRate(u.smoothed) : "–"] : null,
-    s ? ["U.S. rate", fmtRate(natRate)] : null,
+    s ? [share ? "Smoothed share" : "Smoothed rate", u?.smoothed != null ? fmtRate(u.smoothed) + (share ? "%" : "") : "–"] : null,
+    s ? (share ? ["U.S. share", `${fmtRate(natShare)}%`] : ["U.S. rate", fmtRate(natRate)]) : null,
   ].filter(Boolean);
   $("sel-stats").innerHTML = stats.map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join("");
-  drawTrend(s ? ser : null, measure);
+  drawTrend(s ? [ser, all] : null, measure, share);
 }
 
 const trend = d3.select("#trend");
 const T = { w: 360, h: 200, m: { t: 10, r: 70, b: 22, l: 32 } };
 
-function drawTrend(ser, measure) {
-  const rateAt = (s, i) => s.pop[i] ? s[measure][i] / s.pop[i] * 1e5 : null;
+function drawTrend(selected, measure, share) {
+  // Per-year rate per 100k, or (share mode) percent of all crashes that match the filters.
+  const valueAt = ([s, all], i) => share
+    ? (all[measure][i] ? s[measure][i] / all[measure][i] * 100 : null)
+    : (s.pop[i] ? s[measure][i] / s.pop[i] * 1e5 : null);
   const years = d3.range(N);
-  const nat = years.map(i => rateAt(nationalSeries, i));
-  const sel = ser ? years.map(i => rateAt(ser, i)) : null;
+  const nat = years.map(i => valueAt([cur.national, base.national], i));
+  const sel = selected ? years.map(i => valueAt(selected, i)) : null;
 
   const x = d3.scaleLinear([FIRST_YEAR, LAST_YEAR], [T.m.l, T.w - T.m.r]);
   const y = d3.scaleLinear([0, d3.max([...nat, ...(sel ?? [])]) || 1], [T.h - T.m.b, T.m.t]).nice();
@@ -247,7 +311,8 @@ function drawTrend(ser, measure) {
     trend.append("path").attr("class", "series").attr("d", line(sel));
     trend.append("text").attr("class", "label sel").attr("x", T.w - T.m.r + 4).attr("y", ySel).attr("dy", "0.35em").text("Selected");
   }
-  trend.append("text").attr("x", T.m.l).attr("y", T.m.t - 2).text(`${MEASURE_LABEL[measure]} per 100k / yr`);
+  trend.append("text").attr("x", T.m.l).attr("y", T.m.t - 2)
+    .text(share ? `% of ${MEASURE_LABEL[measure]} matching the filters` : `${filterActive() ? "matching " : ""}${MEASURE_LABEL[measure]} per 100k / yr`);
 
   // Crosshair + tooltip
   const cross = trend.append("line").attr("class", "cross").attr("y1", T.m.t).attr("y2", T.h - T.m.b).style("display", "none");
@@ -288,12 +353,14 @@ function tipAt(e, html) {
 function showTip(e, level, id) {
   const u = values.get(id);
   const nYears = +ui.y1.value - +ui.y0.value + 1;
+  const share = ui.norm.value === "share";
   const rows = u ? [
-    [`${MEASURE_LABEL[ui.measure.value]} (${ui.y0.value}–${ui.y1.value})`, fmtInt(u.E)],
+    [`${filterActive() ? "Matching " : ""}${MEASURE_LABEL[ui.measure.value]} (${ui.y0.value}–${ui.y1.value})`, fmtInt(u.E)],
+    filterActive() ? ["Share of all", u.share != null ? `${fmtRate(u.share)}%` : "–"] : null,
     ["Avg. population", d3.format(",.0f")(u.P / nYears)],
     ["Rate per 100k / yr", fmtRate(u.rate)],
-    ["Smoothed rate", fmtRate(u.smoothed)],
-  ] : [["No population data", ""]];
+    [share ? "Smoothed share" : "Smoothed rate", fmtRate(u.smoothed) + (share ? "%" : "")],
+  ].filter(Boolean) : [["No data", ""]];
   tipAt(e, `<b>${nameOf(level, id)}</b>` + rows.map(([k, v]) => `<div class="row"><span>${k}</span>${v}</div>`).join(""));
 }
 
@@ -313,16 +380,12 @@ Promise.all([
   d3.csv("data/county_year.csv"),
   d3.csv("data/state_year.csv"),
   d3.json("https://cdn.jsdelivr.net/npm/us-atlas@3.0.1/counties-albers-10m.json"),
-]).then(([countyRows, stateRows, us]) => {
-  data = { county: index(countyRows, "fips"), state: index(stateRows, "state") };
-  nationalSeries = series();
-  for (const s of data.state.values()) {
-    for (let i = 0; i < N; i++) {
-      nationalSeries.crashes[i] += s.crashes[i];
-      nationalSeries.fatals[i] += s.fatals[i];
-      nationalSeries.pop[i] += s.pop[i];
-    }
-  }
+  d3.json("data/crash_table.json"),
+]).then(([countyRows, stateRows, us, tableMeta]) => {
+  const stateMap = index(stateRows, "state");
+  base = cur = { county: index(countyRows, "fips"), state: stateMap, national: nationalOf(stateMap) };
+  initFilters(tableMeta, applyFilters);
+  ui.norm.querySelector('option[value="share"]').disabled = true;
 
   for (const sel of [ui.y0, ui.y1]) {
     sel.innerHTML = d3.range(FIRST_YEAR, LAST_YEAR + 1).map(y => `<option>${y}</option>`).join("");

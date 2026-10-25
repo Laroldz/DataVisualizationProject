@@ -1,1 +1,1 @@
-{"fields":["lat","lon","year","month","hour","fatals","road","light"],"roads":["Road code 26"],"crashes":[[42.16196,-88.48179,2001,1,16,1,0,1]]}
+{"fields":["lat","lon","year","month","hour","fatals","road","cats","flags","dow"],"roads":["Road code 26"],"crashes":[[42.16196,-88.48179,2001,1,16,1,0,1249812,349529,6]]}

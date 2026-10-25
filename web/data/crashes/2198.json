@@ -1,1 +1,1 @@
-{"fields":["lat","lon","year","month","hour","fatals","road","light"],"roads":["BOUNDARY RD","THORNE BAY RD"],"crashes":[[55.68897,-132.67248,2020,9,8,2,1,1],[55.60243,-133.01255,2021,9,8,1,0,2]]}
+{"fields":["lat","lon","year","month","hour","fatals","road","cats","flags","dow"],"roads":["BOUNDARY RD","THORNE BAY RD"],"crashes":[[55.68897,-132.67248,2020,9,8,2,1,1249553,349525,6],[55.60243,-133.01255,2021,9,8,1,0,1278530,349525,3]]}

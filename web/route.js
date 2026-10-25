@@ -155,7 +155,7 @@ async function findRoute() {
 
 function routeCrashes() {
   const y0 = Math.max(+ui.y0.value, POINT_FIRST_YEAR), y1 = +ui.y1.value, buffer = +$("r-buffer").value;
-  return route.result.matches.filter(m => m.dist <= buffer && m.c[2] >= y0 && m.c[2] <= y1);
+  return route.result.matches.filter(m => m.dist <= buffer && m.c[2] >= y0 && m.c[2] <= y1 && crashMatches(m.c));
 }
 
 // Called from main.js render() so the year range / measure controls apply here too.
@@ -168,7 +168,8 @@ function refreshRoute() {
   routeStatus(y1 < POINT_FIRST_YEAR
     ? `Crash locations are only recorded from ${POINT_FIRST_YEAR} on. Pick a later year range.`
     : `${fmtInt(crashes.length)} fatal crashes and ${fmtInt(deaths)} deaths within ${$("r-buffer").value} m of this ` +
-      `${fmtRate(miles)}-mile route, ${y0}–${y1} (${fmtRate(deaths / miles * 10)} deaths per 10 miles; ${counties} counties).`);
+      `${fmtRate(miles)}-mile route, ${y0}–${y1} (${fmtRate(deaths / miles * 10)} deaths per 10 miles; ${counties} counties).` +
+      (filterActive() ? ` Filtered: ${filterSummary()}.` : ""));
   drawStrip(crashes);
   drawRoute();
 }
