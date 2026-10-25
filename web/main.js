@@ -139,6 +139,7 @@ function render() {
   drawRanking(level, norm);
   drawPanel();
   refreshCountyDetail();
+  refreshRoute();
   $("note").textContent = norm === "smoothed"
     ? `Smoothed rates use empirical Bayes: low-population ${level === "county" ? "counties are pulled toward their state's" : "states are pulled toward the national"} rate, so a single crash can't produce an extreme value. Colors are quantile bins (each holds ~1/7 of areas).`
     : norm === "rate"

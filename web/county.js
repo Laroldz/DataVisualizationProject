@@ -15,31 +15,52 @@ function cssVar(name) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
-function initRoadMap() {
-  detail.map = L.map("roadmap", { preferCanvas: true, zoomSnap: 0.25, maxZoom: 16 });
+// Leaflet map on a gray street basemap that follows light/dark mode; shared with route.js.
+function createStreetMap(el, onThemeChange) {
+  const map = L.map(el, { preferCanvas: true, zoomSnap: 0.25, maxZoom: 16 });
   // Road-name labels sit above the crash dots so they stay readable.
-  detail.map.createPane("labels").style.zIndex = 650;
-  detail.map.getPane("labels").style.pointerEvents = "none";
-  detail.points = L.layerGroup().addTo(detail.map);
+  map.createPane("labels").style.zIndex = 650;
+  map.getPane("labels").style.pointerEvents = "none";
+  let tiles = [];
+  const setTiles = () => {
+    tiles.forEach(t => t.remove());
+    const shade = darkQuery.matches ? "Dark" : "Light";
+    const url = layer => `https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_${shade}_Gray_${layer}/MapServer/tile/{z}/{y}/{x}`;
+    tiles = [
+      L.tileLayer(url("Base"), { maxZoom: 16, attribution: "Tiles &copy; Esri &mdash; Esri, HERE, Garmin, &copy; OpenStreetMap contributors" }),
+      L.tileLayer(url("Reference"), { maxZoom: 16, pane: "labels" }),
+    ];
+    tiles.forEach(t => t.addTo(map));
+  };
   setTiles();
-  darkQuery.addEventListener("change", () => { setTiles(); drawPoints(); });
+  darkQuery.addEventListener("change", () => { setTiles(); onThemeChange(); });
+  return map;
 }
 
-function setTiles() {
-  detail.tiles?.forEach(t => t.remove());
-  const shade = darkQuery.matches ? "Dark" : "Light";
-  const url = layer => `https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_${shade}_Gray_${layer}/MapServer/tile/{z}/{y}/{x}`;
-  detail.tiles = [
-    L.tileLayer(url("Base"), { maxZoom: 16, attribution: "Tiles &copy; Esri &mdash; Esri, HERE, Garmin, &copy; OpenStreetMap contributors" }),
-    L.tileLayer(url("Reference"), { maxZoom: 16, pane: "labels" }),
-  ];
-  detail.tiles.forEach(t => t.addTo(detail.map));
+// Crash dot: blue, sized by deaths, with a surface-colored ring.
+function crashMarker(c, opts = {}) {
+  return L.circleMarker([c[0], c[1]], {
+    radius: 3 + 2 * Math.sqrt(c[5]),
+    color: cssVar("--surface"), weight: 1,
+    fillColor: cssVar("--series-1"), fillOpacity: 0.8,
+    ...opts,
+  });
+}
+
+function initRoadMap() {
+  detail.map = createStreetMap("roadmap", drawPoints);
+  detail.points = L.layerGroup().addTo(detail.map);
+}
+
+// Unprojected (lon/lat) county polygons, loaded once; also used by route.js.
+function countyShapes() {
+  detail.shapes ??= d3.json("https://cdn.jsdelivr.net/npm/us-atlas@3.0.1/counties-10m.json")
+    .then(us => topojson.feature(us, us.objects.counties).features);
+  return detail.shapes;
 }
 
 async function countyShape(fips) {
-  detail.shapes ??= d3.json("https://cdn.jsdelivr.net/npm/us-atlas@3.0.1/counties-10m.json")
-    .then(us => topojson.feature(us, us.objects.counties).features);
-  return (await detail.shapes).find(f => +f.id === fips);
+  return (await countyShapes()).find(f => +f.id === fips);
 }
 
 async function showCountyDetail(fips, name) {
@@ -122,30 +143,27 @@ function drawRoadTable(crashes) {
 function drawPoints() {
   if (!detail.data) return;
   detail.points.clearLayers();
-  const base = cssVar("--series-1"), ring = cssVar("--surface");
   const hl = darkQuery.matches ? HIGHLIGHT.dark : HIGHLIGHT.light;
   const crashes = filteredCrashes();
   const on = c => detail.road === null || c[6] === detail.road;
   // Draw the highlighted road last so it sits on top.
   for (const c of [...crashes.filter(c => !on(c)), ...crashes.filter(on)]) {
     const active = detail.road !== null && on(c);
-    L.circleMarker([c[0], c[1]], {
-      radius: 3 + 2 * Math.sqrt(c[5]),
-      color: ring, weight: 1,
-      fillColor: active ? hl : base,
+    crashMarker(c, {
+      ...(active && { fillColor: hl }),
       fillOpacity: on(c) ? 0.8 : 0.15,
       opacity: on(c) ? 1 : 0.3,
     })
-      .bindTooltip(crashTip(c), { direction: "top", offset: [0, -4], className: "crash-tip" })
+      .bindTooltip(crashTip(c, detail.data.roads), { direction: "top", offset: [0, -4], className: "crash-tip" })
       .on("click", () => highlightRoad(c[6] === detail.road ? null : c[6], false))
       .addTo(detail.points);
   }
 }
 
-function crashTip(c) {
+function crashTip(c, roads, extra = "") {
   const [, , year, month, hour, fatals, road, light] = c;
   const when = `${MONTHS[month - 1] ?? ""} ${year}` + (hour < 24 ? `, ${d3.timeFormat("%-I %p")(new Date(2000, 0, 1, hour))}` : "");
-  return `<b>${detail.data.roads[road]}</b>` +
+  return `<b>${roads[road]}</b>` + extra +
     `<div class="row"><span>When</span>${when}</div>` +
     `<div class="row"><span>Deaths</span>${fatals}</div>` +
     `<div class="row"><span>Light</span>${LIGHT[light] ?? "Unknown"}</div>`;

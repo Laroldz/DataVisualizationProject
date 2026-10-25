@@ -36,6 +36,7 @@
     <label>From <select id="y0"></select></label>
     <label>To <select id="y1"></select></label>
     <button id="reset" type="button">Reset view</button>
+    <button id="to-route" type="button">Route explorer ↓</button>
   </form>
 
   <main>
@@ -79,6 +80,36 @@
     </div>
   </section>
 
+  <section id="route" class="detail">
+    <h2>Route explorer</h2>
+    <p class="sub">Enter a start and a destination to see the fatal crashes along the driving route. The year range and measure controls above apply here too.</p>
+    <form id="route-form" class="controls">
+      <label class="grow">From <input id="r-from" type="text" value="Texas A&amp;M University, College Station, TX" required></label>
+      <label class="grow">To <input id="r-to" type="text" value="Downtown Houston, TX" required></label>
+      <label>Within
+        <select id="r-buffer">
+          <option value="50">50 m of route</option>
+          <option value="100" selected>100 m of route</option>
+          <option value="200">200 m of route</option>
+        </select>
+      </label>
+      <button id="r-go" type="submit">Show crashes</button>
+    </form>
+    <p id="r-status" class="sub" aria-live="polite"></p>
+    <div id="r-results" class="detail-grid" hidden>
+      <div class="map-card">
+        <div id="routemap"></div>
+        <svg id="strip" viewBox="0 0 640 140" role="img" aria-label="Crashes by distance along the route"></svg>
+      </div>
+      <section class="card">
+        <h2>Deadliest stretches</h2>
+        <table id="stretches"><thead><tr><th>Miles</th><th>Main road</th><th class="num" id="stretch-col">Deaths</th></tr></thead><tbody></tbody></table>
+        <p id="stretches-empty" class="note" hidden>No fatal crashes along this route in the selected years.</p>
+        <p class="note">Click a bar or a row to zoom to that stretch. A crash counts if it's within the chosen distance of the route line, so crashes on cross streets right at the route can be included. Counts aren't adjusted for traffic volume. Geocoding by OpenStreetMap Nominatim, routing by OSRM.</p>
+      </section>
+    </div>
+  </section>
+
   <div id="tooltip" class="tooltip" hidden></div>
 
   <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
@@ -86,5 +117,6 @@
   <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="main.js"></script>
   <script src="county.js"></script>
+  <script src="route.js"></script>
 </body>
 </html>

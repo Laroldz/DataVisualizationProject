@@ -23,6 +23,10 @@ Click a county to open a street map of every fatal crash in it, with a ranked li
 
 `build_data.py` downloads the SEER county population file into `prep/raw/` (also gitignored). It reconciles county codes that changed over time, such as Miami-Dade, Broomfield CO, Virginia independent cities, and the NYC and Hawaii groupings SEER used before 2000.
 
+## Route explorer
+
+Enter a start and a destination to see every fatal crash (2001+) within 50, 100 or 200 m of the driving route. The view includes a chart of crashes by mile along the route and a list of the deadliest stretches. Addresses are geocoded with OpenStreetMap Nominatim and routes come from the public OSRM demo server. Both are free, rate-limited services meant for light use, so they're fine for demos but not for heavy traffic. Crash matching runs in the browser against the per-county files in `web/data/crashes/`.
+
 ## Normalization
 
 - **Rate per 100k / yr**: total events ÷ total person-years in the selected year range.
