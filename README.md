@@ -27,6 +27,18 @@ Click a county to open a street map of every fatal crash in it, with a ranked li
 
 Enter a start and a destination to see every fatal crash (2001+) within 50, 100 or 200 m of the driving route. The view includes a chart of crashes by mile along the route and a list of the deadliest stretches. Addresses are geocoded with OpenStreetMap Nominatim and routes come from the public OSRM demo server. Both are free, rate-limited services meant for light use, so they're fine for demos but not for heavy traffic. Crash matching runs in the browser against the per-county files in `web/data/crashes/`.
 
+## Compare
+
+Put up to 4 items side by side. Each item is the U.S., a state, a county, a city or a road, with its own year range. "Compare another period" copies an item with the preceding years for before/after checks, and "+ Add … to compare" on the map's side panel adds the selected area. The view shows:
+
+- a summary table, with the change against item A
+- deaths or rate by year
+- share of crashes by hour
+- share of crashes involving each factor (alcohol, speeding, pedestrians, night, weekend…)
+- crash-type mix
+
+Factor filters apply here too. Cities use FARS city codes, which are stable across years; names come from the years that include `CITYNAME`. FARS has no city or road population, so cities and roads get counts and shares but no per-100k rate. Road items use the geolocated crashes (2001 on).
+
 ## Factor filters
 
 The "Filter crashes by factor" panel narrows every view (map, rankings, trend chart, county road view and route explorer) by:

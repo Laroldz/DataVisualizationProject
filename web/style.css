@@ -115,6 +115,8 @@ tbody tr:hover { background: var(--page); }
 #roads td:nth-child(2) { overflow-wrap: anywhere; }
 
 .controls .grow { flex: 1 1 240px; }
+.controls .search { flex: 0 1 260px; }
+.controls .search input.nomatch { border-color: var(--series-1); }
 input[type="text"] {
   font: inherit; color: var(--ink); background: var(--surface);
   border: 1px solid var(--axis); border-radius: 6px; padding: 4px 8px; width: 100%;
@@ -124,6 +126,37 @@ button:disabled { opacity: 0.5; cursor: progress; }
 #strip { width: 100%; height: auto; display: block; margin-top: 8px; overflow: visible; }
 #strip text { fill: var(--muted); font-size: 10px; }
 #stretches tr.active td { background: var(--page); font-weight: 600; }
+
+.add-compare { margin-top: 8px; width: 100%; }
+.controls label[hidden] { display: none; }
+
+.cmp-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 4px 0 12px; font-size: 13px; }
+.cmp-key { display: inline-flex; align-items: center; gap: 6px; }
+.cmp-key i, .cmp-head i, .chip { width: 12px; height: 12px; border-radius: 3px; display: inline-block; flex: none; }
+.chip { width: 10px; height: 10px; margin-right: 6px; vertical-align: -1px; }
+.cmp-key em { color: var(--ink-2); font-style: normal; }
+.cmp-table-wrap { overflow-x: auto; margin-bottom: 16px; }
+.cmp-table { min-width: 560px; }
+.cmp-table thead th { vertical-align: top; color: var(--ink); font-size: 13px; padding: 6px 8px; }
+.cmp-table tbody th { font-weight: 400; color: var(--ink-2); font-size: 12px; white-space: nowrap; }
+.cmp-table td { font-variant-numeric: tabular-nums; padding: 6px 8px; }
+.cmp-head { display: flex; align-items: center; gap: 6px; font-weight: 500; }
+.cmp-years { display: flex; align-items: center; gap: 4px; margin: 6px 0; font-weight: 400; }
+.cmp-years select { padding: 1px 4px; font-size: 12px; }
+.cmp-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.cmp-actions button { font-size: 11px; padding: 2px 6px; }
+.delta { display: block; color: var(--ink-2); font-size: 11px; }
+.warn { color: var(--ink-2); font-size: 11px; font-weight: 400; margin-top: 4px; }
+.muted { color: var(--muted); }
+.cmp-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.cmp-grid .card + .card { margin-top: 0; }
+@media (max-width: 900px) { .cmp-grid { grid-template-columns: 1fr; } }
+.cmp-grid svg { width: 100%; height: auto; display: block; overflow: visible; }
+.cmp-grid svg text { fill: var(--muted); font-size: 11px; }
+.cmp-grid svg .row-label { fill: var(--ink-2); font-size: 12px; }
+.cmp-grid svg .na { font-size: 10px; font-style: italic; }
+.cmp-grid .cross { stroke: var(--axis); }
+.cmp-grid h2 .sub { font-weight: 400; font-size: 12px; }
 
 .leaflet-container { font: inherit; }
 .leaflet-tooltip.crash-tip {

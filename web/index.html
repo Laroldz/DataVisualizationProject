@@ -14,6 +14,10 @@
   </header>
 
   <form id="controls" class="controls" onsubmit="return false">
+    <label class="search">Find a state or county
+      <input id="search" type="search" list="places" placeholder="e.g. Harris, Texas" autocomplete="off">
+      <datalist id="places"></datalist>
+    </label>
     <label>Level
       <select id="level">
         <option value="county">County</option>
@@ -38,6 +42,7 @@
     <label>To <select id="y1"></select></label>
     <button id="reset" type="button">Reset view</button>
     <button id="to-route" type="button">Route explorer ↓</button>
+    <button id="to-compare" type="button">Compare ↓</button>
   </form>
 
   <details id="filters" class="filters">
@@ -65,6 +70,7 @@
         <h2 id="sel-title">United States</h2>
         <div id="sel-stats" class="stats"></div>
         <svg id="trend" viewBox="0 0 360 200" role="img" aria-label="Rate per 100k by year"></svg>
+        <button id="add-compare" type="button" class="add-compare">+ Add to compare</button>
       </section>
       <section class="card">
         <h2 id="rank-title">Top 10</h2>
@@ -124,6 +130,59 @@
     </div>
   </section>
 
+  <section id="compare" class="detail">
+    <h2>Compare</h2>
+    <p class="sub">Put up to 4 places or time periods side by side: the U.S., states, counties, cities or roads, each with its own years. The factor filters and the Measure control above apply here too.</p>
+    <form id="cmp-form" class="controls">
+      <label>Compare a
+        <select id="cmp-type">
+          <option value="county">County</option>
+          <option value="city">City</option>
+          <option value="road">Road</option>
+          <option value="state">State</option>
+          <option value="us">United States</option>
+        </select>
+      </label>
+      <label id="cmp-state-l">State <select id="cmp-state"></select></label>
+      <label id="cmp-county-l">County <select id="cmp-county"></select></label>
+      <label id="cmp-city-l" hidden>City <select id="cmp-city"></select></label>
+      <label id="cmp-road-l" hidden>Road <select id="cmp-road"></select></label>
+      <label>From <select id="cmp-y0"></select></label>
+      <label>To <select id="cmp-y1"></select></label>
+      <button id="cmp-add" type="submit">Add</button>
+    </form>
+    <p id="cmp-status" class="sub" aria-live="polite"></p>
+    <div id="cmp-results" hidden>
+      <div id="cmp-legend" class="cmp-legend"></div>
+      <div class="card cmp-table-wrap"><table id="cmp-table" class="cmp-table"></table></div>
+      <div class="cmp-grid">
+        <section class="card">
+          <div class="roads-head">
+            <h2>Over time</h2>
+            <select id="cmp-trend-mode" aria-label="Trend measure">
+              <option value="count">Count per year</option>
+              <option value="rate">Rate per 100k</option>
+            </select>
+          </div>
+          <svg id="cmp-trend" role="img" aria-label="Trend for each compared item"></svg>
+        </section>
+        <section class="card">
+          <h2>Time of day</h2>
+          <svg id="cmp-hours" role="img" aria-label="Share of crashes by hour for each compared item"></svg>
+        </section>
+        <section class="card">
+          <h2>What's involved <span class="sub">(% of fatal crashes)</span></h2>
+          <svg id="cmp-factors" role="img" aria-label="Share of crashes with each factor"></svg>
+        </section>
+        <section class="card">
+          <h2>Crash type <span class="sub">(% of fatal crashes)</span></h2>
+          <svg id="cmp-types" role="img" aria-label="Crash type mix"></svg>
+        </section>
+      </div>
+      <p class="note">Percentages compare the mix of crashes, so big and small places can be read side by side. Cities and roads have no population in FARS, so they get counts and shares but no per-100k rate. Roads use crashes with map locations (2001 on).</p>
+    </div>
+  </section>
+
   <div id="tooltip" class="tooltip" hidden></div>
 
   <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
@@ -133,5 +192,6 @@
   <script src="main.js"></script>
   <script src="county.js"></script>
   <script src="route.js"></script>
+  <script src="compare.js"></script>
 </body>
 </html>

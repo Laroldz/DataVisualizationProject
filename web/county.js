@@ -51,6 +51,15 @@ function initRoadMap() {
   detail.points = L.layerGroup().addTo(detail.map);
 }
 
+// Geolocated crashes for one county, fetched once and shared by the road, route and compare views.
+const countyFiles = new Map();
+function loadCountyCrashes(fips) {
+  if (!countyFiles.has(fips)) {
+    countyFiles.set(fips, d3.json(`data/crashes/${fips}.json`).catch(() => ({ roads: [], crashes: [] })));
+  }
+  return countyFiles.get(fips);
+}
+
 // Unprojected (lon/lat) county polygons, loaded once; also used by route.js.
 function countyShapes() {
   detail.shapes ??= d3.json("https://cdn.jsdelivr.net/npm/us-atlas@3.0.1/counties-10m.json")
@@ -62,12 +71,12 @@ async function countyShape(fips) {
   return (await countyShapes()).find(f => +f.id === fips);
 }
 
-async function showCountyDetail(fips, name) {
+async function showCountyDetail(fips, name, scroll = true) {
   const section = $("detail");
   section.hidden = false;
   if (!detail.map) initRoadMap();
   detail.map.invalidateSize();
-  section.scrollIntoView({ behavior: "smooth", block: "start" });
+  if (scroll) section.scrollIntoView({ behavior: "smooth", block: "start" });
   if (fips === detail.fips) return;
 
   const request = ++detail.request;
@@ -78,7 +87,7 @@ async function showCountyDetail(fips, name) {
   d3.select("#roads tbody").html("");
 
   const [data, shape] = await Promise.all([
-    d3.json(`data/crashes/${fips}.json`).catch(() => ({ roads: [], crashes: [] })),
+    loadCountyCrashes(fips),
     countyShape(fips),
   ]);
   if (request !== detail.request) return; // a newer county was clicked meanwhile

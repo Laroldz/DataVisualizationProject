@@ -195,6 +195,7 @@ function render() {
   drawPanel();
   refreshCountyDetail();
   refreshRoute();
+  refreshCompare();
   updateFilterHeader(+ui.y0.value, +ui.y1.value);
   const area = level === "county" ? "counties" : "states";
   const toward = level === "county" ? "their state's" : "the national";
@@ -260,6 +261,7 @@ function drawPanel() {
   const u = s && s.level === ui.level.value ? values.get(s.id) : null;
 
   $("sel-title").textContent = s ? nameOf(s.level, s.id) : "United States";
+  $("add-compare").textContent = `+ Add ${s ? nameOf(s.level, s.id) : "United States"} to compare`;
   const stats = [
     [`${filterActive() ? "Matching" : "Total"} ${MEASURE_LABEL[measure]}, ${ui.y0.value}–${ui.y1.value}`, fmtInt(E)],
     filterActive() ? ["Share of all", total ? `${fmtRate(E / total * 100)}%` : "–"] : ["Avg. population", d3.format(",.0f")(P / nYears)],
@@ -333,11 +335,58 @@ function drawTrend(selected, measure, share) {
 
 // ---------- interaction ----------
 
-function select(level, id) {
+function select(level, id, scroll = true) {
   state.selected = { level, id };
   render();
-  if (level === "county") showCountyDetail(id, nameOf("county", id));
+  if (level === "county") showCountyDetail(id, nameOf("county", id), scroll);
   else hideCountyDetail();
+}
+
+// ---------- search ----------
+
+let places; // label -> { level, id }
+
+function initSearch() {
+  places = new Map([
+    ...states.map(f => [`${f.properties.name} (state)`, { level: "state", id: +f.id }]),
+    ...counties.map(f => [nameOf("county", +f.id), { level: "county", id: +f.id }]),
+  ]);
+  $("places").innerHTML = [...places.keys()].sort().map(l => `<option value="${l}">`).join("");
+  const input = $("search");
+  // Picking a suggestion fills in an exact label; Enter also accepts partial text.
+  input.addEventListener("input", () => {
+    input.classList.remove("nomatch");
+    if (places.has(input.value)) goToPlace(places.get(input.value));
+  });
+  input.addEventListener("keydown", e => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    const hit = findPlace(input.value);
+    if (!hit) return input.classList.add("nomatch");
+    input.value = hit[0];
+    goToPlace(hit[1]);
+  });
+}
+
+function findPlace(text) {
+  const q = text.trim().toLowerCase();
+  if (!q) return null;
+  // Exact, then prefix, then substring matches; ties go to the most populous place.
+  const pop = ({ level, id }) => base[level].get(id)?.pop[N - 1] ?? 0;
+  for (const test of [l => l === q, l => l.startsWith(q), l => l.includes(q)]) {
+    const hits = [...places].filter(([l]) => test(l.toLowerCase()));
+    if (hits.length) return d3.greatest(hits, ([, p]) => pop(p));
+  }
+  return null;
+}
+
+function goToPlace({ level, id }) {
+  const feature = (level === "state" ? states : counties).find(f => +f.id === id);
+  // Like clicking: a state drills down to its counties; a county is selected in place.
+  ui.level.value = "county";
+  state.focusState = level === "state" ? id : Math.floor(id / 1000);
+  select(level, id, false);
+  zoomTo(feature);
 }
 
 function tipAt(e, html) {
@@ -395,6 +444,8 @@ Promise.all([
 
   drawMap(us);
   render();
+  initSearch();
+  initCompare();
 
   ui.level.addEventListener("change", () => { state.focusState = null; render(); });
   for (const el of [ui.measure, ui.norm]) el.addEventListener("change", render);

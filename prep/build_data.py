@@ -80,7 +80,8 @@ def read_fars(year, name, cols):
 
 ACCIDENT_COLS = ["ST_CASE", "STATE", "COUNTY", "FATALS", "MONTH", "DAY_WEEK", "HOUR",
                  "LATITUDE", "LONGITUD", "TWAY_ID", "WEATHER", "LGT_COND", "SUR_COND", "HARM_EV",
-                 "MAN_COLL", "ROAD_FNC", "FUNC_SYS", "RUR_URB", "LAND_USE", "C_M_ZONE", "WRK_ZONE", "DRUNK_DR"]
+                 "MAN_COLL", "ROAD_FNC", "FUNC_SYS", "RUR_URB", "LAND_USE", "C_M_ZONE", "WRK_ZONE", "DRUNK_DR",
+                 "CITY", "CITYNAME"]
 VEHICLE_COLS = ["ST_CASE", "VEH_NO", "BODY_TYP", "HIT_RUN", "DR_DRINK", "SPEEDREL", "VSURCOND",
                 "DR_CF1", "DR_CF2", "DR_CF3", "DR_CF4"]
 PERSON_COLS = ["ST_CASE", "PER_TYP", "AGE"]
@@ -93,7 +94,7 @@ def load_fars():
         v = read_fars(year, "vehicle", VEHICLE_COLS)
         p = read_fars(year, "person", PERSON_COLS)
         cats, flags = factors.encode(a, v, p, year)
-        keep = [c for c in ["STATE", "COUNTY", "FATALS", "MONTH", "DAY_WEEK", "HOUR", "LATITUDE", "LONGITUD", "TWAY_ID"] if c in a]
+        keep = [c for c in ["STATE", "COUNTY", "CITY", "CITYNAME", "FATALS", "MONTH", "DAY_WEEK", "HOUR", "LATITUDE", "LONGITUD", "TWAY_ID"] if c in a]
         frames.append(a[keep].assign(YEAR=year, CATS=cats, FLAGS=flags))
         print(f"\r{year}", end="", flush=True)
     print()
@@ -104,19 +105,22 @@ def load_fars():
 
 def write_table(fars):
     """All crashes as a compact column-wise binary table for in-browser filtering:
-    cats u32, flags u32, county index u16, year-1975 u8, fatals u8, hour u8, day-of-week u8."""
+    cats u32, flags u32, county index u16, city code u16 (0 = none), year-1975 u8, fatals u8,
+    hour u8, day-of-week u8."""
     fips = sorted(fars.FIPS.unique())
     meta = {
         "rows": len(fars), "firstYear": YEARS[0], "fips": [int(f) for f in fips],
-        "columns": [["cats", "u32"], ["flags", "u32"], ["county", "u16"], ["year", "u8"],
+        "columns": [["cats", "u32"], ["flags", "u32"], ["county", "u16"], ["city", "u16"], ["year", "u8"],
                     ["fatals", "u8"], ["hour", "u8"], ["dow", "u8"]],
         "availability": availability(fars),
         "categories": factors.CATEGORIES, "catBits": factors.CAT_BITS, "flags": factors.FLAGS,
+        "cities": city_list(fars),
     }
     hour = fars.HOUR.where(fars.HOUR.between(0, 23), 255)
     dow = fars.DAY_WEEK.where(fars.DAY_WEEK.between(1, 7), 0)
     cols = [fars.CATS.astype("<u4"), fars.FLAGS.astype("<u4"),
             fars.FIPS.map({f: i for i, f in enumerate(fips)}).astype("<u2"),
+            city_code(fars).astype("<u2"),
             (fars.YEAR - YEARS[0]).astype("u1"), fars.FATALS.clip(upper=255).astype("u1"),
             hour.astype("u1"), dow.astype("u1")]
     with gzip.open(OUT / "crash_table.bin.gz", "wb", compresslevel=9) as f:
@@ -126,6 +130,28 @@ def write_table(fars):
         json.dump(meta, f, separators=(",", ":"))
     print(f"Wrote crash table: {len(fars):,} rows, "
           f"{(OUT / 'crash_table.bin.gz').stat().st_size / 1e6:.1f} MB gzipped")
+
+
+def city_code(fars):
+    """FARS (GSA) city code; 0 when the crash wasn't in a city or the city is unknown."""
+    c = fars.CITY.fillna(0).astype(int)
+    return c.where(~c.isin([9997, 9898, 9999]) & c.between(1, 65534), 0)
+
+
+def city_list(fars):
+    """[[state, code, name, crashes], ...] for cities with at least 5 crashes. Names come from
+    CITYNAME (only in some years; codes are stable across years), latest name wins."""
+    df = fars.assign(CODE=city_code(fars))
+    df = df[df.CODE > 0]
+    counts = df.groupby(["STATE", "CODE"]).size()
+    named = df.dropna(subset=["CITYNAME"]) if "CITYNAME" in df else df.iloc[:0]
+    names = named.sort_values("YEAR").groupby(["STATE", "CODE"]).CITYNAME.last()
+    out = []
+    for (state, code), n in counts[counts >= 5].items():
+        name = names.get((state, code))
+        name = str(name).split(" (")[0].title() if isinstance(name, str) else f"City code {code}"
+        out.append([int(state), int(code), name, int(n)])
+    return out
 
 
 def availability(fars):

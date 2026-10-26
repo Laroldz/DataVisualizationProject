@@ -123,7 +123,7 @@ async function findRoute() {
     const fips = await routeCounties(segs);
 
     routeStatus(`Loading crashes for ${fips.length} counties…`);
-    const files = await Promise.all(fips.map(f => d3.json(`data/crashes/${f}.json`).catch(() => null)));
+    const files = await Promise.all(fips.map(loadCountyCrashes));
 
     const grid = segmentIndex(segs);
     const matches = [];
