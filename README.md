@@ -39,6 +39,30 @@ Put up to 4 items side by side. Each item is the U.S., a state, a county, a city
 
 Factor filters apply here too. Cities use FARS city codes, which are stable across years; names come from the years that include `CITYNAME`. FARS has no city or road population, so cities and roads get counts and shares but no per-100k rate. Road items use the geolocated crashes (2001 on).
 
+## When & weather
+
+For the area selected on the map (or the U.S.), using the year range, Measure and filters:
+
+- **By month:** crashes per day in each month, as an index where 100 is the average day, so short months aren't penalized.
+- **By day and hour:** a 7 × 24 heatmap showing each cell's share of the week's crashes.
+- **By weather:** for clear, rain, snow/ice and fog/other, the share of crashes, deaths per 100 crashes, and the share at night, speeding-related, alcohol-involved and rollover/fixed-object, plus the peak month. Cells well above the all-weather value are shaded.
+
+The section calculates only while it's on screen.
+
+## Before / after a law
+
+Pick a place (state, county, city or road) and either a state traffic-law change or your own event with an exact date. Custom events compare 12-month periods before and after the date, skipping the day itself, with population prorated by day. The page compares crashes in the N years before and after, alongside the same change in a comparison group (rest of the U.S. or rest of the state). The result is a simple difference-in-differences with a 95% interval from Poisson counts. Laws also show as markers on the side panel's trend chart; clicking one opens this view.
+
+```
+python prep/policies.py       # -> web/data/policies.json (downloads the CSPP panel into prep/raw/)
+```
+
+- **Source:** state law changes come from the [Correlates of State Policy Project](https://ippsr.msu.edu/public-policy/correlates-state-policy) v2.6 (IPPSR, Michigan State University): 0.08 BAC, first and primary seat-belt laws, universal motorcycle-helmet laws, rural-interstate speed limits, handheld-phone bans, graduated licensing and open-container laws. There are 305 changes, 1982–2015.
+- **Timing:** CSPP is yearly and its variables don't share one timing convention. A change first seen in year Y is treated as taking effect in Y−1 or Y, and both years are left out of the before/after windows.
+- **Cross-checks:** where CSPP has two variables for the same law, events that disagree are dropped (e.g. Utah's 0.08 BAC).
+- **Coverage:** CSPP's traffic variables end around 2010–2016, so newer laws need a custom event. Custom events are saved in your browser only.
+- **Not county-level:** there is no national record of county-level road policies; state laws apply to every county in the state.
+
 ## Factor filters
 
 The "Filter crashes by factor" panel narrows every view (map, rankings, trend chart, county road view and route explorer) by:

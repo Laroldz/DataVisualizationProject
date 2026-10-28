@@ -158,6 +158,45 @@ button:disabled { opacity: 0.5; cursor: progress; }
 .cmp-grid .cross { stroke: var(--axis); }
 .cmp-grid h2 .sub { font-weight: 400; font-size: 12px; }
 
+.pol-custom { display: contents; }
+.pol-custom[hidden] { display: none; }
+.pol-summary { font-size: 15px; line-height: 1.6; max-width: 900px; margin: 8px 0 12px; }
+.pol-summary .warn { font-size: 14px; }
+.pol-suggest { margin-bottom: 12px; }
+.pol-table { margin-bottom: 8px; }
+.pol-table th, .pol-table td { text-align: right; font-variant-numeric: tabular-nums; }
+.pol-table tbody th { text-align: left; font-weight: 400; color: var(--ink-2); }
+.pol-table caption { caption-side: bottom; text-align: left; color: var(--muted); font-size: 11px; padding-top: 6px; }
+#pol-chart .before-band, #pol-chart .after-band { fill: var(--page); }
+#pol-chart .gap-band { fill: var(--grid); opacity: 0.6; }
+#pol-chart .band-label { fill: var(--ink-2); font-size: 11px; }
+#pol-chart .base100 { stroke: var(--axis); stroke-dasharray: 3 3; }
+#pol-chart .event-line { stroke: var(--ink-2); stroke-width: 1.5; }
+input[type="date"] { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--axis); border-radius: 6px; padding: 3px 6px; }
+#pat-month .base100 { stroke: var(--ink-2); }
+#patterns svg { width: 100%; height: auto; display: block; overflow: visible; }
+#patterns svg text { fill: var(--muted); font-size: 11px; }
+#patterns svg .row-label { fill: var(--ink-2); font-size: 12px; }
+#patterns svg .row-total { fill: var(--ink-2); font-size: 11px; font-variant-numeric: tabular-nums; }
+#patterns svg .row-total.head { fill: var(--muted); }
+.pat-weather-card { margin-top: 16px; }
+.table-scroll { overflow-x: auto; }
+.pat-weather { min-width: 720px; }
+.pat-weather th, .pat-weather td { text-align: right; padding: 6px 8px; font-variant-numeric: tabular-nums; vertical-align: middle; }
+.pat-weather th:first-child { text-align: left; }
+.pat-weather thead th { font-size: 11px; color: var(--muted); font-weight: 500; white-space: normal; max-width: 110px; }
+.pat-weather tbody th, .pat-weather tfoot th { font-weight: 400; color: var(--ink); }
+.pat-weather td.share { text-align: left; white-space: nowrap; }
+.pat-weather td small { display: block; color: var(--muted); font-size: 11px; }
+.pat-weather td.share small { display: inline; margin-left: 6px; }
+.pat-weather .sbar { display: inline-block; width: 64px; height: 6px; background: var(--grid); border-radius: 3px; margin-right: 8px; vertical-align: middle; overflow: hidden; }
+.pat-weather .sbar.blank { visibility: hidden; }
+.pat-weather .sbar i { display: block; height: 100%; background: var(--series-1); border-radius: 3px; }
+.pat-weather td.hi { background: color-mix(in srgb, var(--series-1) 14%, transparent); font-weight: 600; }
+.pat-weather tfoot td, .pat-weather tfoot th { border-top: 1px solid var(--axis); color: var(--ink-2); }
+#trend .law { fill: var(--ink-2); cursor: pointer; }
+#trend .law:hover { fill: var(--ink); }
+
 .leaflet-container { font: inherit; }
 .leaflet-tooltip.crash-tip {
   background: var(--surface); color: var(--ink); border: 1px solid var(--axis);

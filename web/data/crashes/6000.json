@@ -1,1 +1,1 @@
-{"fields":["lat","lon","year","month","hour","fatals","road","cats","flags","dow"],"roads":["I-8"],"crashes":[[33.88917,-118.16671,2001,2,12,1,0,2195729,349781,6]]}
+{"fields":["lat","lon","year","month","hour","fatals","road","cats","flags","dow","day"],"roads":["I-8"],"crashes":[[33.88917,-118.16671,2001,2,12,1,0,2195729,349781,6,16]]}

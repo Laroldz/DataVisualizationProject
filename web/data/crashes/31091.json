@@ -1,1 +1,1 @@
-{"fields":["lat","lon","year","month","hour","fatals","road","cats","flags","dow"],"roads":["CO RD","S LINCOLN AVE"],"crashes":[[42.04387,-101.03251,2005,10,9,1,0,1347857,349525,7],[42.04071,-101.04372,2013,8,16,1,1,1347857,349529,3]]}
+{"fields":["lat","lon","year","month","hour","fatals","road","cats","flags","dow","day"],"roads":["CO RD","S LINCOLN AVE"],"crashes":[[42.04387,-101.03251,2005,10,9,1,0,1347857,349525,7,22],[42.04071,-101.04372,2013,8,16,1,1,1347857,349529,3,27]]}

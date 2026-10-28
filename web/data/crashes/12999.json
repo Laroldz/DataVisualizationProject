@@ -1,1 +1,1 @@
-{"fields":["lat","lon","year","month","hour","fatals","road","cats","flags","dow"],"roads":["S. AVON ESTATES BLVD"],"crashes":[[27.58962,-81.54712,2005,8,0,1,0,1347905,349530,4]]}
+{"fields":["lat","lon","year","month","hour","fatals","road","cats","flags","dow","day"],"roads":["S. AVON ESTATES BLVD"],"crashes":[[27.58962,-81.54712,2005,8,0,1,0,1347905,349530,4,24]]}

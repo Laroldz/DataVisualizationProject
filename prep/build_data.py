@@ -78,7 +78,7 @@ def read_fars(year, name, cols):
     return pd.read_csv(path, usecols=use, encoding="latin-1", low_memory=False).rename(columns=clean)
 
 
-ACCIDENT_COLS = ["ST_CASE", "STATE", "COUNTY", "FATALS", "MONTH", "DAY_WEEK", "HOUR",
+ACCIDENT_COLS = ["ST_CASE", "STATE", "COUNTY", "FATALS", "MONTH", "DAY", "DAY_WEEK", "HOUR",
                  "LATITUDE", "LONGITUD", "TWAY_ID", "WEATHER", "LGT_COND", "SUR_COND", "HARM_EV",
                  "MAN_COLL", "ROAD_FNC", "FUNC_SYS", "RUR_URB", "LAND_USE", "C_M_ZONE", "WRK_ZONE", "DRUNK_DR",
                  "CITY", "CITYNAME"]
@@ -94,7 +94,7 @@ def load_fars():
         v = read_fars(year, "vehicle", VEHICLE_COLS)
         p = read_fars(year, "person", PERSON_COLS)
         cats, flags = factors.encode(a, v, p, year)
-        keep = [c for c in ["STATE", "COUNTY", "CITY", "CITYNAME", "FATALS", "MONTH", "DAY_WEEK", "HOUR", "LATITUDE", "LONGITUD", "TWAY_ID"] if c in a]
+        keep = [c for c in ["STATE", "COUNTY", "CITY", "CITYNAME", "FATALS", "MONTH", "DAY", "DAY_WEEK", "HOUR", "LATITUDE", "LONGITUD", "TWAY_ID"] if c in a]
         frames.append(a[keep].assign(YEAR=year, CATS=cats, FLAGS=flags))
         print(f"\r{year}", end="", flush=True)
     print()
@@ -106,12 +106,12 @@ def load_fars():
 def write_table(fars):
     """All crashes as a compact column-wise binary table for in-browser filtering:
     cats u32, flags u32, county index u16, city code u16 (0 = none), year-1975 u8, fatals u8,
-    hour u8, day-of-week u8."""
+    hour u8, day-of-week u8, month u8, day of month u8 (0 = unknown for the last four)."""
     fips = sorted(fars.FIPS.unique())
     meta = {
         "rows": len(fars), "firstYear": YEARS[0], "fips": [int(f) for f in fips],
         "columns": [["cats", "u32"], ["flags", "u32"], ["county", "u16"], ["city", "u16"], ["year", "u8"],
-                    ["fatals", "u8"], ["hour", "u8"], ["dow", "u8"]],
+                    ["fatals", "u8"], ["hour", "u8"], ["dow", "u8"], ["month", "u8"], ["day", "u8"]],
         "availability": availability(fars),
         "categories": factors.CATEGORIES, "catBits": factors.CAT_BITS, "flags": factors.FLAGS,
         "cities": city_list(fars),
@@ -122,7 +122,9 @@ def write_table(fars):
             fars.FIPS.map({f: i for i, f in enumerate(fips)}).astype("<u2"),
             city_code(fars).astype("<u2"),
             (fars.YEAR - YEARS[0]).astype("u1"), fars.FATALS.clip(upper=255).astype("u1"),
-            hour.astype("u1"), dow.astype("u1")]
+            hour.astype("u1"), dow.astype("u1"),
+            fars.MONTH.where(fars.MONTH.between(1, 12), 0).astype("u1"),
+            fars.DAY.where(fars.DAY.between(1, 31), 0).astype("u1")]
     with gzip.open(OUT / "crash_table.bin.gz", "wb", compresslevel=9) as f:
         for c in cols:
             f.write(np.ascontiguousarray(c.to_numpy()).tobytes())
@@ -205,9 +207,9 @@ def write_points(fars):
         roads = sorted(g.ROAD.unique())
         idx = {r: i for i, r in enumerate(roads)}
         rows = [[round(r.LATITUDE, 5), round(r.LONGITUD, 5), int(r.YEAR), int(r.MONTH), int(r.HOUR),
-                 int(r.FATALS), idx[r.ROAD], int(r.CATS), int(r.FLAGS), int(r.DAY_WEEK)] for r in g.itertuples()]
+                 int(r.FATALS), idx[r.ROAD], int(r.CATS), int(r.FLAGS), int(r.DAY_WEEK), int(r.DAY)] for r in g.itertuples()]
         with open(out / f"{fips}.json", "w") as f:
-            json.dump({"fields": ["lat", "lon", "year", "month", "hour", "fatals", "road", "cats", "flags", "dow"],
+            json.dump({"fields": ["lat", "lon", "year", "month", "hour", "fatals", "road", "cats", "flags", "dow", "day"],
                        "roads": roads, "crashes": rows}, f, separators=(",", ":"))
     total = len(fars[fars.YEAR.isin(POINT_YEARS)])
     print(f"Wrote {len(pts):,} of {total:,} crashes ({len(pts) / total:.1%}) with coordinates "

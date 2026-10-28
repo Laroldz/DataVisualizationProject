@@ -26,39 +26,50 @@ function fillSelect(id, options, keep = false) {
   if (keep && options.some(([v]) => String(v) === prev)) sel.value = prev;
 }
 
-async function updateCompareForm() {
-  const type = $("cmp-type").value;
-  for (const [id, show] of [["cmp-state-l", type !== "us"], ["cmp-county-l", type === "county" || type === "road"],
-                            ["cmp-city-l", type === "city"], ["cmp-road-l", type === "road"]]) {
-    $(id).hidden = !show;
+// Place pickers shared with policy.js: elements `${p}-type`, `${p}-state`, `${p}-county`,
+// `${p}-city`, `${p}-road`, each wrapped in a label with id `${p}-…-l`.
+async function updatePlaceForm(p) {
+  const type = $(`${p}-type`).value;
+  for (const [id, show] of [["state", type !== "us"], ["county", type === "county" || type === "road"],
+                            ["city", type === "city"], ["road", type === "road"]]) {
+    $(`${p}-${id}-l`).hidden = !show;
   }
-  const st = +$("cmp-state").value;
+  const st = +$(`${p}-state`).value;
   if (type === "county" || type === "road") {
-    fillSelect("cmp-county", counties.filter(f => Math.floor(+f.id / 1000) === st)
+    fillSelect(`${p}-county`, counties.filter(f => Math.floor(+f.id / 1000) === st)
       .map(f => [+f.id, f.properties.name]).sort((a, b) => a[1].localeCompare(b[1])), true);
   }
   if (type === "city") {
-    fillSelect("cmp-city", filters.meta.cities.filter(c => c[0] === st).sort((a, b) => b[3] - a[3])
+    fillSelect(`${p}-city`, filters.meta.cities.filter(c => c[0] === st).sort((a, b) => b[3] - a[3])
       .map(c => [c[1], `${c[2]} (${fmtInt(c[3])} crashes)`]));
   }
   if (type === "road") {
-    $("cmp-road").innerHTML = "<option>Loading…</option>";
-    const fips = +$("cmp-county").value;
+    $(`${p}-road`).innerHTML = "<option>Loading…</option>";
+    const fips = +$(`${p}-county`).value;
     const file = await loadCountyCrashes(fips);
-    if (+$("cmp-county").value !== fips) return;
+    if (+$(`${p}-county`).value !== fips) return;
     const deaths = d3.rollups(file.crashes, v => d3.sum(v, c => c[5]), c => c[6]).sort((a, b) => b[1] - a[1]);
-    fillSelect("cmp-road", deaths.map(([r, d]) => [file.roads[r], `${file.roads[r]} (${fmtInt(d)} deaths)`]));
+    fillSelect(`${p}-road`, deaths.map(([r, d]) => [file.roads[r], `${file.roads[r]} (${fmtInt(d)} deaths)`]));
   }
+}
+
+function placeFromForm(p) {
+  const type = $(`${p}-type`).value, state = +$(`${p}-state`).value;
+  const item = { type };
+  if (type === "state") item.state = state;
+  if (type === "county") item.fips = +$(`${p}-county`).value;
+  if (type === "city") Object.assign(item, { state, code: +$(`${p}-city`).value });
+  if (type === "road") Object.assign(item, { fips: +$(`${p}-county`).value, road: $(`${p}-road`).value });
+  return item;
+}
+
+async function updateCompareForm() {
+  await updatePlaceForm("cmp");
   $("cmp-add").disabled = cmp.items.length >= CMP_MAX;
 }
 
 function itemFromForm() {
-  const type = $("cmp-type").value, state = +$("cmp-state").value;
-  const item = { type, y0: +$("cmp-y0").value, y1: +$("cmp-y1").value };
-  if (type === "state") item.state = state;
-  if (type === "county") item.fips = +$("cmp-county").value;
-  if (type === "city") Object.assign(item, { state, code: +$("cmp-city").value });
-  if (type === "road") Object.assign(item, { fips: +$("cmp-county").value, road: $("cmp-road").value });
+  const item = { ...placeFromForm("cmp"), y0: +$("cmp-y0").value, y1: +$("cmp-y1").value };
   if (item.y1 < item.y0) [item.y0, item.y1] = [item.y1, item.y0];
   return item;
 }

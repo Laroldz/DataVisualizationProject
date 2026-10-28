@@ -196,6 +196,8 @@ function render() {
   refreshCountyDetail();
   refreshRoute();
   refreshCompare();
+  refreshPolicy();
+  refreshPatterns();
   updateFilterHeader(+ui.y0.value, +ui.y1.value);
   const area = level === "county" ? "counties" : "states";
   const toward = level === "county" ? "their state's" : "the national";
@@ -331,6 +333,20 @@ function drawTrend(selected, measure, share) {
       tipAt(e, `<b>${FIRST_YEAR + i}</b>` + rows.map(([k, r]) => `<div class="row"><span>${k}</span>${r == null ? "–" : fmtRate(r)}</div>`).join(""));
     })
     .on("mouseleave", () => { cross.style("display", "none"); dot.style("display", "none"); hideTip(); });
+
+  // State law changes for the selected state (or the selected county's state), as markers on the
+  // x axis; clicking one opens the before/after view.
+  const s = state.selected;
+  if (!s) return;
+  const st = s.level === "state" ? s.id : Math.floor(s.id / 1000);
+  const place = s.level === "state" ? { type: "state", state: st } : { type: "county", fips: s.id };
+  const laws = policyData.map((e, i) => [e, i]).filter(([e]) => e.state === st);
+  trend.append("g").selectAll("path").data(laws).join("path")
+    .attr("class", "law")
+    .attr("d", ([e]) => `M${x(e.year)},${T.h - T.m.b - 1}l-4,-7h8z`)
+    .on("mousemove", (ev, [e]) => tipAt(ev, `<b>~${e.year}: ${e.label}</b><div class="row"><span>${e.detail}</span></div><div class="row"><span>Click for before / after</span></div>`))
+    .on("mouseleave", hideTip)
+    .on("click", (ev, [, i]) => { hideTip(); openPolicy(place, i); });
 }
 
 // ---------- interaction ----------
@@ -430,7 +446,9 @@ Promise.all([
   d3.csv("data/state_year.csv"),
   d3.json("https://cdn.jsdelivr.net/npm/us-atlas@3.0.1/counties-albers-10m.json"),
   d3.json("data/crash_table.json"),
-]).then(([countyRows, stateRows, us, tableMeta]) => {
+  d3.json("data/policies.json").catch(() => []),
+]).then(([countyRows, stateRows, us, tableMeta, policies]) => {
+  policyData = policies;
   const stateMap = index(stateRows, "state");
   base = cur = { county: index(countyRows, "fips"), state: stateMap, national: nationalOf(stateMap) };
   initFilters(tableMeta, applyFilters);
@@ -446,6 +464,8 @@ Promise.all([
   render();
   initSearch();
   initCompare();
+  initPolicy();
+  initPatterns();
 
   ui.level.addEventListener("change", () => { state.focusState = null; render(); });
   for (const el of [ui.measure, ui.norm]) el.addEventListener("change", render);
