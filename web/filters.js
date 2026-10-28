@@ -145,7 +145,8 @@ function initFilters(meta, onChange) {
 
 function updateFilterHeader(y0, y1) {
   const n = Object.keys(filters.active).length;
-  $("filter-count").textContent = n ? `${n} active` : "none";
+  $("filter-count").textContent = $("float-filter-count").textContent = n ? `${n} active` : "none";
+  $("float-filters").classList.toggle("on", n > 0);
   $("filter-clear").hidden = !n;
   const gaps = filterActive() ? filterGaps(y0, y1) : [];
   $("filter-gaps").textContent = gaps.length

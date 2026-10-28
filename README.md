@@ -10,6 +10,8 @@ python -m http.server -d web 8000
 
 Then open http://localhost:8000. The aggregated data in `web/data/` is committed, so the raw FARS files aren't needed to view the map.
 
+The page uses one soft light theme and is split into five color-coded groups, linked from the sticky top bar: **1 The United States at a glance** (national totals, change vs the previous period, deadliest year, top 10 states and counties), **2 Explore the map** (level, filters, map), **3 Street level** (county road view, route explorer), **4 When & weather** and **5 Compare & evaluate** (compare, before/after a law). A search box sits above group 1. Measure, Show, the year range and the filters live in a small settings bar that floats at the bottom of the screen and applies to every group. Click a group's header to collapse or expand it; the browser remembers which groups are collapsed, and jumping to a group (nav links, search, clicking a county) opens it.
+
 ## Rebuild the data
 
 ```

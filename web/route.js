@@ -278,4 +278,3 @@ function drawRoute() {
 
 $("route-form").addEventListener("submit", e => { e.preventDefault(); findRoute(); });
 $("r-buffer").addEventListener("change", refreshRoute);
-$("to-route").addEventListener("click", () => $("route").scrollIntoView({ behavior: "smooth", block: "start" }));

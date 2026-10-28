@@ -3,7 +3,7 @@
 
 const POINT_FIRST_YEAR = 2001;
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const HIGHLIGHT = { light: "#eb6834", dark: "#d95926" }; // categorical slot 2, distinct from the blue dots
+const HIGHLIGHT = { light: "#eb6834", dark: "#ff8a5c" }; // categorical slot 2, distinct from the blue dots
 
 const detail = {
   fips: null, name: null, data: null, road: null, request: 0,
@@ -74,6 +74,8 @@ async function countyShape(fips) {
 async function showCountyDetail(fips, name, scroll = true) {
   const section = $("detail");
   section.hidden = false;
+  // Leaflet can't size a map inside a collapsed section, so a county click always opens it.
+  reveal(section, false);
   if (!detail.map) initRoadMap();
   detail.map.invalidateSize();
   if (scroll) section.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -193,5 +195,5 @@ function highlightRoad(road, zoom) {
   if (pts.length) detail.map.fitBounds(L.latLngBounds(pts), { padding: [32, 32], maxZoom: 15 });
 }
 
-$("d-back").addEventListener("click", () => $("map").scrollIntoView({ behavior: "smooth", block: "center" }));
+$("d-back").addEventListener("click", () => reveal($("map"), true, "center"));
 $("d-clear").addEventListener("click", () => highlightRoad(null, true));

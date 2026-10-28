@@ -1,6 +1,8 @@
 const FIRST_YEAR = 1975, LAST_YEAR = 2024, N = LAST_YEAR - FIRST_YEAR + 1;
-const RAMP_LIGHT = ["#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#184f95", "#0d366b"];
-const RAMP_DARK = [...RAMP_LIGHT].reverse(); // low values recede into the dark surface
+// Plasma, trimmed at both ends and reversed: low values are pale yellow on the light page,
+// high ones deep purple.
+const RAMP_LIGHT = d3.quantize(d3.interpolatePlasma, 9).slice(1, 8).reverse();
+const RAMP_DARK = RAMP_LIGHT; // the page has a single light theme
 
 const fmtInt = d3.format(",");
 const fmtRate = d3.format(",.1f");
@@ -13,7 +15,7 @@ const MEASURE_LABEL = { fatals: "fatalities", crashes: "fatal crashes" };
 const $ = id => document.getElementById(id);
 const ui = { level: $("level"), measure: $("measure"), norm: $("norm"), y0: $("y0"), y1: $("y1") };
 const tooltip = $("tooltip");
-const darkQuery = matchMedia("(prefers-color-scheme: dark)");
+const darkQuery = { matches: false, addEventListener() {} }; // always light; kept so views can stay theme-aware
 
 const state = { selected: null, focusState: null }; // selected = {level, id}
 // base = all crashes; cur = crashes matching the active filters (=== base when none are active).
@@ -57,8 +59,8 @@ function smooth(units, scale) {
   }
 }
 
-function compute() {
-  const level = ui.level.value, measure = ui.measure.value, norm = ui.norm.value;
+function compute(level = ui.level.value) {
+  const measure = ui.measure.value, norm = ui.norm.value;
   const i0 = +ui.y0.value - FIRST_YEAR, i1 = +ui.y1.value - FIRST_YEAR;
   const source = cur[level], all = base[level];
   const out = new Map();
@@ -191,7 +193,7 @@ function render() {
 
   drawOutline();
   drawLegend(color, norm);
-  drawRanking(level, norm);
+  drawGlance(level);
   drawPanel();
   refreshCountyDetail();
   refreshRoute();
@@ -207,6 +209,55 @@ function render() {
     count: "Raw counts mostly track population. Switch to a rate to compare areas fairly.",
     share: `Percent of all ${ui.measure.value === "fatals" ? "deaths" : "fatal crashes"} that match the filters, smoothed so ${area} with few crashes are pulled toward ${toward} share.`,
   })[norm] + " Colors are quantile bins (each holds ~1/7 of areas).";
+}
+
+// ---------- the U.S. at a glance ----------
+
+// National totals for the year range (and filters), plus the top 10 states and counties.
+function drawGlance(mapLevel) {
+  const measure = ui.measure.value, nat = cur.national;
+  const y0 = +ui.y0.value, y1 = +ui.y1.value, nYears = y1 - y0 + 1;
+  const i0 = y0 - FIRST_YEAR, i1 = y1 - FIRST_YEAR;
+  const E = sum(nat[measure], i0, i1), P = sum(nat.pop, i0, i1);
+  const days = d3.sum(d3.range(y0, y1 + 1), y => (y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0)) ? 366 : 365);
+  const noun = MEASURE_LABEL[measure], matching = filterActive() ? "Matching " : "";
+  const years = y0 === y1 ? `${y0}` : `${y0}–${y1}`;
+
+  // Change against the same number of years just before the range.
+  const p0 = i0 - nYears, p1 = i0 - 1;
+  const prev = p0 >= 0 ? sum(nat[measure], p0, p1) : null;
+  const prevYears = p0 >= 0 ? (nYears === 1 ? `${y0 - 1}` : `${y0 - nYears}–${y0 - 1}`) : "";
+  const change = prev ? (E - prev) / prev * 100 : null;
+
+  const yearVals = d3.range(i0, i1 + 1).map(i => [FIRST_YEAR + i, nat[measure][i]]);
+  const [peakYear, peak] = d3.greatest(yearVals, d => d[1]);
+
+  const kpis = [
+    [`${matching}deaths`, fmtInt(sum(nat.fatals, i0, i1)), years],
+    [`${matching}fatal crashes`, fmtInt(sum(nat.crashes, i0, i1)), years],
+    [`${matching}${noun} per 100k / yr`, P ? fmtRate(E / P * 1e5) : "–", `${d3.format(".3~s")(P / nYears)} residents`],
+    [`${matching}${noun} per day`, d3.format(",.0f")(E / days), "on average"],
+    [`Change vs ${prevYears || "previous years"}`,
+      change == null ? "–" : `${change > 0 ? "▲" : change < 0 ? "▼" : ""} ${d3.format("+.1f")(change)}%`,
+      change == null ? "no earlier data" : `${fmtInt(prev)} before`, change > 0 ? "up" : change < 0 ? "down" : ""],
+    [`Deadliest year in range`, `${peakYear}`, `${fmtInt(peak)} ${noun}`],
+  ];
+  $("glance-sub").textContent = `${matching ? `Crashes matching: ${filterSummary()}. ` : ""}${years}, all states and counties.`;
+  $("kpis").innerHTML = kpis.map(([k, v, note, cls = ""]) =>
+    `<div class="kpi ${cls}"><span>${k[0].toUpperCase() + k.slice(1)}</span><b>${v}</b><small>${note}</small></div>`).join("");
+
+  for (const level of ["state", "county"]) drawRank(level, level === mapLevel ? values : compute(level));
+}
+
+function drawRank(level, vals) {
+  const norm = ui.norm.value, fmt = norm === "count" ? fmtInt : fmtRate;
+  const rows = [...vals.values()].sort((a, b) => b.value - a.value).slice(0, 10);
+  const table = d3.select(`#rank-${level}`);
+  table.select(".rank-col").text({ count: "Total", share: "Share %" }[norm] ?? "Per 100k");
+  const nYears = +ui.y1.value - +ui.y0.value + 1;
+  table.select("tbody").selectAll("tr").data(rows).join("tr")
+    .on("click", (e, u) => goToPlace({ level, id: u.id }))
+    .html((u, i) => `<td>${i + 1}</td><td>${nameOf(level, u.id)}</td><td class="num">${fmt(u.value)}</td><td class="num">${d3.format(".3~s")(u.P / nYears)}</td>`);
 }
 
 function drawOutline() {
@@ -227,20 +278,6 @@ function drawLegend(color, norm) {
     bin.append("span").text(i === 0 ? "" : `${fmt(cuts[i])}+`);
   });
   legend.append("span").attr("class", "nd").html("<i></i>No data");
-}
-
-function drawRanking(level, norm) {
-  const fmt = norm === "count" ? fmtInt : fmtRate;
-  let rows = [...values.values()];
-  if (level === "county" && state.focusState) rows = rows.filter(u => Math.floor(u.id / 1000) === state.focusState);
-  rows = rows.sort((a, b) => b.value - a.value).slice(0, 10);
-  const where = level === "county" && state.focusState ? ` in ${nameOf("state", state.focusState)}` : "";
-  $("rank-title").textContent = `Top 10 ${level === "county" ? "counties" : "states"}${where}`;
-  $("rank-col").textContent = { count: "Total", share: "Share %" }[norm] ?? "Per 100k";
-  const nYears = +ui.y1.value - +ui.y0.value + 1;
-  d3.select("#rank tbody").selectAll("tr").data(rows).join("tr")
-    .on("click", (e, u) => select(level, u.id))
-    .html((u, i) => `<td>${i + 1}</td><td>${nameOf(level, u.id)}</td><td class="num">${fmt(u.value)}</td><td class="num">${d3.format(".3~s")(u.P / nYears)}</td>`);
 }
 
 // ---------- side panel ----------
@@ -271,7 +308,10 @@ function drawPanel() {
     s ? [share ? "Smoothed share" : "Smoothed rate", u?.smoothed != null ? fmtRate(u.smoothed) + (share ? "%" : "") : "–"] : null,
     s ? (share ? ["U.S. share", `${fmtRate(natShare)}%`] : ["U.S. rate", fmtRate(natRate)]) : null,
   ].filter(Boolean);
-  $("sel-stats").innerHTML = stats.map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join("");
+  // National numbers live in the "at a glance" section; here they'd only repeat it.
+  $("sel-stats").innerHTML = s
+    ? stats.map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join("")
+    : `<p class="panel-hint">Click a state or county to see its numbers. National totals are in section 1.</p>`;
   drawTrend(s ? [ser, all] : null, measure, share);
 }
 
@@ -354,7 +394,11 @@ function drawTrend(selected, measure, share) {
 function select(level, id, scroll = true) {
   state.selected = { level, id };
   render();
-  if (level === "county") showCountyDetail(id, nameOf("county", id), scroll);
+  if (level === "county") {
+    $("road-search").value = nameOf("county", id);
+    $("road-search").classList.remove("nomatch");
+    showCountyDetail(id, nameOf("county", id), scroll);
+  }
   else hideCountyDetail();
 }
 
@@ -367,43 +411,102 @@ function initSearch() {
     ...states.map(f => [`${f.properties.name} (state)`, { level: "state", id: +f.id }]),
     ...counties.map(f => [nameOf("county", +f.id), { level: "county", id: +f.id }]),
   ]);
-  $("places").innerHTML = [...places.keys()].sort().map(l => `<option value="${l}">`).join("");
-  const input = $("search");
+  const labels = [...places.keys()].sort();
+  $("places").innerHTML = labels.map(l => `<option value="${l}">`).join("");
+  $("county-places").innerHTML = labels.filter(l => places.get(l).level === "county").map(l => `<option value="${l}">`).join("");
+  bindSearch($("search"), null, place => goToPlace(place));
+  // Section 3's search only knows counties, and opens the road view where you are.
+  bindSearch($("road-search"), "county", place => goToPlace(place, $("detail")));
+}
+
+function bindSearch(input, level, go) {
   // Picking a suggestion fills in an exact label; Enter also accepts partial text.
   input.addEventListener("input", () => {
     input.classList.remove("nomatch");
-    if (places.has(input.value)) goToPlace(places.get(input.value));
+    const p = places.get(input.value);
+    if (p && (!level || p.level === level)) go(p);
   });
   input.addEventListener("keydown", e => {
     if (e.key !== "Enter") return;
     e.preventDefault();
-    const hit = findPlace(input.value);
+    const hit = findPlace(input.value, level);
     if (!hit) return input.classList.add("nomatch");
     input.value = hit[0];
-    goToPlace(hit[1]);
+    go(hit[1]);
   });
 }
 
-function findPlace(text) {
+function findPlace(text, level = null) {
   const q = text.trim().toLowerCase();
   if (!q) return null;
   // Exact, then prefix, then substring matches; ties go to the most populous place.
   const pop = ({ level, id }) => base[level].get(id)?.pop[N - 1] ?? 0;
+  const pool = [...places].filter(([, p]) => !level || p.level === level);
   for (const test of [l => l === q, l => l.startsWith(q), l => l.includes(q)]) {
-    const hits = [...places].filter(([l]) => test(l.toLowerCase()));
+    const hits = pool.filter(([l]) => test(l.toLowerCase()));
     if (hits.length) return d3.greatest(hits, ([, p]) => pop(p));
   }
   return null;
 }
 
-function goToPlace({ level, id }) {
+function goToPlace({ level, id }, scrollTo = $("g-map")) {
   const feature = (level === "state" ? states : counties).find(f => +f.id === id);
   // Like clicking: a state drills down to its counties; a county is selected in place.
   ui.level.value = "county";
   state.focusState = level === "state" ? id : Math.floor(id / 1000);
   select(level, id, false);
   zoomTo(feature);
+  reveal(scrollTo);
 }
+
+// ---------- collapsible sections ----------
+
+const COLLAPSED_KEY = "collapsed-groups";
+
+// Each page group's header toggles it; the open/closed state is remembered in this browser.
+function initCollapsible() {
+  let saved = [];
+  try { saved = JSON.parse(localStorage.getItem(COLLAPSED_KEY)) || []; } catch {}
+  for (const group of document.querySelectorAll(".group")) {
+    const head = group.querySelector(".group-head");
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "collapse-btn";
+    btn.setAttribute("aria-label", `Collapse or expand: ${head.querySelector("h2").textContent}`);
+    head.append(btn);
+    head.addEventListener("click", e => {
+      if (e.target.closest("a, input, select")) return;
+      setCollapsed(group, !group.classList.contains("collapsed"));
+    });
+    setCollapsed(group, saved.includes(group.id), false);
+  }
+  // Nav links open their section before the browser jumps to it.
+  for (const a of document.querySelectorAll(".navlinks a")) {
+    a.addEventListener("click", () => setCollapsed($(a.hash.slice(1)), false));
+  }
+}
+
+function setCollapsed(group, collapsed, save = true) {
+  group.classList.toggle("collapsed", collapsed);
+  group.querySelector(".collapse-btn").setAttribute("aria-expanded", String(!collapsed));
+  if (!collapsed) {
+    // Leaflet maps measure their container, so re-measure once visible again.
+    if (typeof detail !== "undefined") detail.map?.invalidateSize();
+    if (typeof route !== "undefined") route.map?.invalidateSize();
+  }
+  if (!save) return;
+  const ids = [...document.querySelectorAll(".group.collapsed")].map(g => g.id);
+  try { localStorage.setItem(COLLAPSED_KEY, JSON.stringify(ids)); } catch {}
+}
+
+// Open the section holding `el` (if collapsed), then optionally scroll to `el`.
+function reveal(el, scroll = true, block = "start") {
+  const group = el.closest(".group");
+  if (group?.classList.contains("collapsed")) setCollapsed(group, false);
+  if (scroll) el.scrollIntoView({ behavior: "smooth", block });
+}
+
+initCollapsible();
 
 function tipAt(e, html) {
   tooltip.innerHTML = html;
@@ -472,5 +575,9 @@ Promise.all([
   ui.y0.addEventListener("change", () => { if (+ui.y0.value > +ui.y1.value) ui.y1.value = ui.y0.value; render(); });
   ui.y1.addEventListener("change", () => { if (+ui.y1.value < +ui.y0.value) ui.y0.value = ui.y1.value; render(); });
   $("reset").addEventListener("click", reset);
+  $("float-filters").addEventListener("click", () => {
+    $("filters").open = true;
+    reveal($("filters"));
+  });
   darkQuery.addEventListener("change", render);
 });

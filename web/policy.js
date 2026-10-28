@@ -302,7 +302,7 @@ async function openPolicy(place, eventIndex) {
   await updatePlaceForm("pol");
   if (place.type === "county") $("pol-county").value = place.fips;
   updatePolicyEvents(`p:${eventIndex}`);
-  $("policy").scrollIntoView({ behavior: "smooth", block: "start" });
+  reveal($("policy"));
   runPolicy(place, { ...policyData[eventIndex], curated: true });
 }
 
@@ -325,7 +325,6 @@ function initPolicy() {
     sel.value = POL_SUGGEST[pol.current.event.category][1];
     sel.dispatchEvent(new Event("change"));
   });
-  $("to-policy").addEventListener("click", () => $("policy").scrollIntoView({ behavior: "smooth", block: "start" }));
   darkQuery.addEventListener("change", refreshPolicy);
   updatePolicyForm();
 }

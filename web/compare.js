@@ -4,7 +4,7 @@
 
 const CMP_MAX = 4;
 // Categorical slots 1-4 from the validated palette; an item keeps its slot until removed.
-const CMP_COLORS = { light: ["#2a78d6", "#eb6834", "#1baf7a", "#eda100"], dark: ["#3987e5", "#d95926", "#199e70", "#c98500"] };
+const CMP_COLORS = { light: ["#2a78d6", "#eb6834", "#1baf7a", "#eda100"], dark: ["#5aa9ff", "#ff8a5c", "#3dd6a0", "#ffd166"] };
 const CMP_TYPES = { us: "United States", state: "State", county: "County", city: "City", road: "Road" };
 const CMP_FACTORS = ["alcohol", "speeding", "pedestrian", "bicyclist", "motorcycle", "large_truck",
                      "hit_run", "work_zone", "young_driver", "older_driver"];
@@ -394,12 +394,11 @@ function initCompare() {
     $("cmp-add").disabled = cmp.items.length >= CMP_MAX;
     refreshCompare();
   });
-  $("to-compare").addEventListener("click", () => $("compare").scrollIntoView({ behavior: "smooth", block: "start" }));
   $("add-compare").addEventListener("click", () => {
     const s = state.selected;
     const item = !s ? { type: "us" } : s.level === "state" ? { type: "state", state: s.id } : { type: "county", fips: s.id };
     addCompareItem({ ...item, y0: +ui.y0.value, y1: +ui.y1.value });
-    $("compare").scrollIntoView({ behavior: "smooth", block: "start" });
+    reveal($("compare"));
   });
   darkQuery.addEventListener("change", refreshCompare);
   updateCompareForm();

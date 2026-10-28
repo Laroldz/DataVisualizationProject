@@ -3,27 +3,299 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
   <title>U.S. Traffic Fatality Explorer</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header>
-    <h1>U.S. Traffic Fatality Explorer</h1>
-    <p class="sub">Fatal motor-vehicle crashes (NHTSA FARS) by state and county, normalized by population (NCI SEER).</p>
-  </header>
+  <nav class="topnav">
+    <a class="brand" href="#top">U.S. Traffic Fatality Explorer</a>
+    <div class="navlinks">
+      <a href="#g-glance" class="pill" data-accent="rose"><i></i>At a glance</a>
+      <a href="#g-map" class="pill" data-accent="blue"><i></i>Map</a>
+      <a href="#g-street" class="pill" data-accent="teal"><i></i>Street level</a>
+      <a href="#g-patterns" class="pill" data-accent="amber"><i></i>When &amp; weather</a>
+      <a href="#g-compare" class="pill" data-accent="violet"><i></i>Compare &amp; evaluate</a>
+    </div>
+  </nav>
 
-  <form id="controls" class="controls" onsubmit="return false">
-    <label class="search">Find a state or county
+  <header id="top">
+    <p class="sub">Fatal motor-vehicle crashes (NHTSA FARS, 1975–2024) by state and county, normalized by population (NCI SEER). The settings bar at the bottom of the screen (measure, years, filters) applies to every view on the page.</p>
+    <label class="searchbar">Find a state or county
       <input id="search" type="search" list="places" placeholder="e.g. Harris, Texas" autocomplete="off">
       <datalist id="places"></datalist>
     </label>
-    <label>Level
-      <select id="level">
-        <option value="county">County</option>
-        <option value="state">State</option>
-      </select>
+  </header>
+
+  <section id="g-glance" class="group" data-accent="rose">
+    <div class="group-head">
+      <span class="num">1</span>
+      <div><h2>The United States at a glance</h2><p id="glance-sub" class="sub"></p></div>
+    </div>
+    <div id="kpis" class="kpis"></div>
+    <div class="glance-grid">
+      <section class="card">
+        <h2>Top 10 states</h2>
+        <table id="rank-state"><thead><tr><th>#</th><th>State</th><th class="num rank-col">Value</th><th class="num">Pop.</th></tr></thead><tbody></tbody></table>
+      </section>
+      <section class="card">
+        <h2>Top 10 counties</h2>
+        <table id="rank-county"><thead><tr><th>#</th><th>County</th><th class="num rank-col">Value</th><th class="num">Pop.</th></tr></thead><tbody></tbody></table>
+      </section>
+    </div>
+    <p class="note">Click a row to find it on the map.</p>
+  </section>
+
+  <section id="g-map" class="group" data-accent="blue">
+    <div class="group-head">
+      <span class="num">2</span>
+      <div><h2>Explore the map</h2><p class="sub">Click a state to zoom in, or a county to see its roads.</p></div>
+    </div>
+
+    <div class="controls">
+      <label>Level
+        <select id="level">
+          <option value="county">County</option>
+          <option value="state">State</option>
+        </select>
+      </label>
+    </div>
+
+    <details id="filters" class="filters">
+      <summary>Filter crashes by factor <span id="filter-count" class="badge">none</span></summary>
+      <div class="filter-body">
+        <div id="filter-grid" class="filter-grid"></div>
+        <div class="filter-foot">
+          <button id="filter-clear" type="button" hidden>Clear all filters</button>
+          <span id="filter-status" class="sub" aria-live="polite"></span>
+        </div>
+        <p class="note">Filters apply to every view on the page. "Involved" means at least one such person or vehicle was in the crash. Alcohol is a police-reported drinking driver; speeding is police-reported speeding-related. FARS changed how it codes some factors over the years; see the README for how they were matched up.</p>
+      </div>
+    </details>
+    <p id="filter-gaps" class="gaps"></p>
+
+    <main>
+      <section class="map-card">
+        <svg id="map" viewBox="0 0 975 610" role="img" aria-label="Choropleth map of the United States"></svg>
+        <div id="legend" class="legend"></div>
+        <p class="note" id="note"></p>
+      </section>
+
+      <aside>
+        <section class="card">
+          <h2 id="sel-title">United States</h2>
+          <div id="sel-stats" class="stats"></div>
+          <svg id="trend" viewBox="0 0 360 200" role="img" aria-label="Rate per 100k by year"></svg>
+          <button id="add-compare" type="button" class="add-compare">+ Add to compare</button>
+        </section>
+      </aside>
+    </main>
+  </section>
+
+  <section id="g-street" class="group" data-accent="teal">
+    <div class="group-head">
+      <span class="num">3</span>
+      <div><h2>Street level</h2><p class="sub">Crashes on real roads (2001 on): the deadliest roads in a county, or every crash along a driving route.</p></div>
+    </div>
+
+    <label class="searchbar compact">Find a county's roads
+      <input id="road-search" type="search" list="county-places" placeholder="e.g. Harris, Texas" autocomplete="off">
+      <datalist id="county-places"></datalist>
     </label>
+
+    <section id="detail" class="block" hidden>
+      <div class="detail-head">
+        <div>
+          <h3 id="d-title"></h3>
+          <p id="d-sub" class="sub"></p>
+        </div>
+        <button id="d-back" type="button">↑ Back to map</button>
+      </div>
+      <div class="detail-grid">
+        <div class="map-card"><div id="roadmap"></div></div>
+        <section class="card">
+          <div class="roads-head">
+            <h2 id="roads-title">Deadliest roads</h2>
+            <button id="d-clear" type="button">Show all</button>
+          </div>
+          <table id="roads"><thead><tr><th>#</th><th>Road</th><th class="num">Crashes</th><th class="num">Deaths</th></tr></thead><tbody></tbody></table>
+          <p class="note">Click a road to highlight its crashes, or click a dot to highlight its road. Dot size shows deaths per crash. Rankings are raw counts: FARS has no per-road traffic volume, so busy highways naturally rank high.</p>
+        </section>
+      </div>
+    </section>
+    <p id="detail-hint" class="hint">Search for a county above, or click one on the map, to see its deadliest roads here.</p>
+
+    <section id="route" class="block">
+      <h3>Route explorer</h3>
+      <p class="sub">Enter a start and a destination to see the fatal crashes along the driving route.</p>
+      <form id="route-form" class="controls">
+        <label class="grow">From <input id="r-from" type="text" value="Texas A&amp;M University, College Station, TX" required></label>
+        <label class="grow">To <input id="r-to" type="text" value="Downtown Houston, TX" required></label>
+        <label>Within
+          <select id="r-buffer">
+            <option value="50">50 m of route</option>
+            <option value="100" selected>100 m of route</option>
+            <option value="200">200 m of route</option>
+          </select>
+        </label>
+        <button id="r-go" type="submit" class="primary">Show crashes</button>
+      </form>
+      <p id="r-status" class="sub" aria-live="polite"></p>
+      <div id="r-results" class="detail-grid" hidden>
+        <div class="map-card">
+          <div id="routemap"></div>
+          <svg id="strip" viewBox="0 0 640 140" role="img" aria-label="Crashes by distance along the route"></svg>
+        </div>
+        <section class="card">
+          <h2>Deadliest stretches</h2>
+          <table id="stretches"><thead><tr><th>Miles</th><th>Main road</th><th class="num" id="stretch-col">Deaths</th></tr></thead><tbody></tbody></table>
+          <p id="stretches-empty" class="note" hidden>No fatal crashes along this route in the selected years.</p>
+          <p class="note">Click a bar or a row to zoom to that stretch. A crash counts if it's within the chosen distance of the route line, so crashes on cross streets right at the route can be included. Counts aren't adjusted for traffic volume. Geocoding by OpenStreetMap Nominatim, routing by OSRM.</p>
+        </section>
+      </div>
+    </section>
+  </section>
+
+  <section id="g-patterns" class="group" data-accent="amber">
+    <div class="group-head">
+      <span class="num">4</span>
+      <div><h2 id="pat-title">When &amp; weather</h2><p class="sub">For the area selected on the map (or the whole U.S.), by month, day, hour and weather.</p></div>
+    </div>
+    <section id="patterns">
+      <p id="pat-status" class="sub" aria-live="polite"></p>
+      <div id="pat-results" hidden>
+        <div class="cmp-grid">
+          <section class="card">
+            <h2>By month <span class="sub">(per day, 100 = average day)</span></h2>
+            <svg id="pat-month" role="img" aria-label="Crashes by month"></svg>
+          </section>
+          <section class="card">
+            <h2>By day and hour</h2>
+            <svg id="pat-heat" role="img" aria-label="Crashes by day of week and hour"></svg>
+            <div id="pat-heat-legend" class="legend"></div>
+          </section>
+        </div>
+        <section class="card pat-weather-card">
+          <h2>By weather</h2>
+          <div class="table-scroll"><table id="pat-weather" class="pat-weather"></table></div>
+          <p id="pat-weather-note" class="note"></p>
+        </section>
+      </div>
+    </section>
+  </section>
+
+  <section id="g-compare" class="group" data-accent="violet">
+    <div class="group-head">
+      <span class="num">5</span>
+      <div><h2>Compare &amp; evaluate</h2><p class="sub">Put places and periods side by side, or test what changed after a law.</p></div>
+    </div>
+
+    <section id="compare" class="block">
+      <h3>Compare</h3>
+      <p class="sub">Up to 4 places or time periods: the U.S., states, counties, cities or roads, each with its own years.</p>
+      <form id="cmp-form" class="controls">
+        <label>Compare a
+          <select id="cmp-type">
+            <option value="county">County</option>
+            <option value="city">City</option>
+            <option value="road">Road</option>
+            <option value="state">State</option>
+            <option value="us">United States</option>
+          </select>
+        </label>
+        <label id="cmp-state-l">State <select id="cmp-state"></select></label>
+        <label id="cmp-county-l">County <select id="cmp-county"></select></label>
+        <label id="cmp-city-l" hidden>City <select id="cmp-city"></select></label>
+        <label id="cmp-road-l" hidden>Road <select id="cmp-road"></select></label>
+        <label>From <select id="cmp-y0"></select></label>
+        <label>To <select id="cmp-y1"></select></label>
+        <button id="cmp-add" type="submit" class="primary">Add</button>
+      </form>
+      <p id="cmp-status" class="sub" aria-live="polite"></p>
+      <div id="cmp-results" hidden>
+        <div id="cmp-legend" class="cmp-legend"></div>
+        <div class="card cmp-table-wrap"><table id="cmp-table" class="cmp-table"></table></div>
+        <div class="cmp-grid">
+          <section class="card">
+            <div class="roads-head">
+              <h2>Over time</h2>
+              <select id="cmp-trend-mode" aria-label="Trend measure">
+                <option value="count">Count per year</option>
+                <option value="rate">Rate per 100k</option>
+              </select>
+            </div>
+            <svg id="cmp-trend" role="img" aria-label="Trend for each compared item"></svg>
+          </section>
+          <section class="card">
+            <h2>Time of day</h2>
+            <svg id="cmp-hours" role="img" aria-label="Share of crashes by hour for each compared item"></svg>
+          </section>
+          <section class="card">
+            <h2>What's involved <span class="sub">(% of fatal crashes)</span></h2>
+            <svg id="cmp-factors" role="img" aria-label="Share of crashes with each factor"></svg>
+          </section>
+          <section class="card">
+            <h2>Crash type <span class="sub">(% of fatal crashes)</span></h2>
+            <svg id="cmp-types" role="img" aria-label="Crash type mix"></svg>
+          </section>
+        </div>
+        <p class="note">Percentages compare the mix of crashes, so big and small places can be read side by side. Cities and roads have no population in FARS, so they get counts and shares but no per-100k rate. Roads use crashes with map locations (2001 on).</p>
+      </div>
+    </section>
+
+    <section id="policy" class="block">
+      <h3>Before / after a law</h3>
+      <p class="sub">See how crashes changed after a state traffic law (or any date you enter) took effect, next to the same change in a comparison group, so national trends aren't mistaken for the law's effect.</p>
+      <form id="pol-form" class="controls">
+        <label>Place
+          <select id="pol-type">
+            <option value="state">State</option>
+            <option value="county">County</option>
+            <option value="city">City</option>
+            <option value="road">Road</option>
+          </select>
+        </label>
+        <label id="pol-state-l">State <select id="pol-state"></select></label>
+        <label id="pol-county-l" hidden>County <select id="pol-county"></select></label>
+        <label id="pol-city-l" hidden>City <select id="pol-city"></select></label>
+        <label id="pol-road-l" hidden>Road <select id="pol-road"></select></label>
+        <label class="grow">Law or event <select id="pol-event"></select></label>
+        <span id="pol-custom" class="pol-custom" hidden>
+          <label>Date <input id="pol-cdate" type="date" min="1975-01-01" max="2024-12-31" value="2015-07-01" required></label>
+          <label>Label <input id="pol-clabel" type="text" placeholder="e.g. Speed cameras installed"></label>
+        </span>
+        <button id="pol-forget" type="button" hidden>Delete this event</button>
+        <label>Years each side
+          <select id="pol-n"><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option></select>
+        </label>
+        <label>Compare with
+          <select id="pol-ctrl"><option value="us">Rest of the U.S.</option><option value="state">Rest of the state</option></select>
+        </label>
+        <button type="submit" class="primary">Show</button>
+      </form>
+      <p id="pol-status" class="sub" aria-live="polite"></p>
+      <div id="pol-results" hidden>
+        <p id="pol-summary" class="pol-summary"></p>
+        <button id="pol-suggest" type="button" class="pol-suggest" hidden></button>
+        <div class="cmp-grid">
+          <section class="card">
+            <h2>Indexed trend</h2>
+            <div id="pol-legend" class="cmp-legend"></div>
+            <svg id="pol-chart" role="img" aria-label="Crashes before and after the event, place vs comparison"></svg>
+          </section>
+          <section class="card">
+            <h2>Before vs after</h2>
+            <table id="pol-table" class="pol-table"></table>
+            <p class="note" id="pol-source"></p>
+            <p class="note">This compares trends; it can't prove the law caused the change, since other things (enforcement, the economy, other laws) can shift at the same time. State law years come from the Correlates of State Policy Project and are only known to the year, so the years when a law took effect are left out; custom events use the exact date, with 12-month periods on each side. Its records end around 2010–2016, so newer laws aren't listed; use a custom event for those.</p>
+          </section>
+        </div>
+      </div>
+    </section>
+  </section>
+
+  <form id="controls" class="floatbar" onsubmit="return false" aria-label="Settings for every view">
     <label>Measure
       <select id="measure">
         <option value="fatals">Fatalities</option>
@@ -38,226 +310,10 @@
         <option value="share">Share matching filters (%)</option>
       </select>
     </label>
-    <label>From <select id="y0"></select></label>
-    <label>To <select id="y1"></select></label>
-    <button id="reset" type="button">Reset view</button>
-    <button id="to-patterns" type="button">When &amp; weather ↓</button>
-    <button id="to-route" type="button">Route explorer ↓</button>
-    <button id="to-compare" type="button">Compare ↓</button>
-    <button id="to-policy" type="button">Before / after a law ↓</button>
+    <label>Years <span class="years"><select id="y0" aria-label="From"></select>–<select id="y1" aria-label="To"></select></span></label>
+    <button id="float-filters" type="button">Filters <span id="float-filter-count" class="badge">none</span></button>
+    <button id="reset" type="button" title="Clear the selection and zoom">↺ Reset view</button>
   </form>
-
-  <details id="filters" class="filters">
-    <summary>Filter crashes by factor <span id="filter-count" class="badge">none</span></summary>
-    <div class="filter-body">
-      <div id="filter-grid" class="filter-grid"></div>
-      <div class="filter-foot">
-        <button id="filter-clear" type="button" hidden>Clear all filters</button>
-        <span id="filter-status" class="sub" aria-live="polite"></span>
-      </div>
-      <p class="note">Filters apply to the map, rankings, county road view and route explorer. "Involved" means at least one such person or vehicle was in the crash. Alcohol is a police-reported drinking driver; speeding is police-reported speeding-related. FARS changed how it codes some factors over the years; see the README for how they were matched up.</p>
-    </div>
-  </details>
-  <p id="filter-gaps" class="gaps"></p>
-
-  <main>
-    <section class="map-card">
-      <svg id="map" viewBox="0 0 975 610" role="img" aria-label="Choropleth map of the United States"></svg>
-      <div id="legend" class="legend"></div>
-      <p class="note" id="note"></p>
-    </section>
-
-    <aside>
-      <section class="card">
-        <h2 id="sel-title">United States</h2>
-        <div id="sel-stats" class="stats"></div>
-        <svg id="trend" viewBox="0 0 360 200" role="img" aria-label="Rate per 100k by year"></svg>
-        <button id="add-compare" type="button" class="add-compare">+ Add to compare</button>
-      </section>
-      <section class="card">
-        <h2 id="rank-title">Top 10</h2>
-        <table id="rank"><thead><tr><th>#</th><th>Area</th><th class="num" id="rank-col">Value</th><th class="num">Pop.</th></tr></thead><tbody></tbody></table>
-      </section>
-    </aside>
-  </main>
-
-  <section id="detail" class="detail" hidden>
-    <div class="detail-head">
-      <div>
-        <h2 id="d-title"></h2>
-        <p id="d-sub" class="sub"></p>
-      </div>
-      <button id="d-back" type="button">↑ Back to map</button>
-    </div>
-    <div class="detail-grid">
-      <div class="map-card"><div id="roadmap"></div></div>
-      <section class="card">
-        <div class="roads-head">
-          <h2 id="roads-title">Deadliest roads</h2>
-          <button id="d-clear" type="button">Show all</button>
-        </div>
-        <table id="roads"><thead><tr><th>#</th><th>Road</th><th class="num">Crashes</th><th class="num">Deaths</th></tr></thead><tbody></tbody></table>
-        <p class="note">Click a road to highlight its crashes, or click a dot to highlight its road. Dot size shows deaths per crash. Rankings are raw counts: FARS has no per-road traffic volume, so busy highways naturally rank high.</p>
-      </section>
-    </div>
-  </section>
-
-  <section id="patterns" class="detail">
-    <h2 id="pat-title">When &amp; weather</h2>
-    <p class="sub">For the area selected on the map (or the whole U.S.), using the year range, Measure and filters above.</p>
-    <p id="pat-status" class="sub" aria-live="polite"></p>
-    <div id="pat-results" hidden>
-      <div class="cmp-grid">
-        <section class="card">
-          <h2>By month <span class="sub">(per day, 100 = average day)</span></h2>
-          <svg id="pat-month" role="img" aria-label="Crashes by month"></svg>
-        </section>
-        <section class="card">
-          <h2>By day and hour</h2>
-          <svg id="pat-heat" role="img" aria-label="Crashes by day of week and hour"></svg>
-          <div id="pat-heat-legend" class="legend"></div>
-        </section>
-      </div>
-      <section class="card pat-weather-card">
-        <h2>By weather</h2>
-        <div class="table-scroll"><table id="pat-weather" class="pat-weather"></table></div>
-        <p id="pat-weather-note" class="note"></p>
-      </section>
-    </div>
-  </section>
-
-  <section id="route" class="detail">
-    <h2>Route explorer</h2>
-    <p class="sub">Enter a start and a destination to see the fatal crashes along the driving route. The year range and measure controls above apply here too.</p>
-    <form id="route-form" class="controls">
-      <label class="grow">From <input id="r-from" type="text" value="Texas A&amp;M University, College Station, TX" required></label>
-      <label class="grow">To <input id="r-to" type="text" value="Downtown Houston, TX" required></label>
-      <label>Within
-        <select id="r-buffer">
-          <option value="50">50 m of route</option>
-          <option value="100" selected>100 m of route</option>
-          <option value="200">200 m of route</option>
-        </select>
-      </label>
-      <button id="r-go" type="submit">Show crashes</button>
-    </form>
-    <p id="r-status" class="sub" aria-live="polite"></p>
-    <div id="r-results" class="detail-grid" hidden>
-      <div class="map-card">
-        <div id="routemap"></div>
-        <svg id="strip" viewBox="0 0 640 140" role="img" aria-label="Crashes by distance along the route"></svg>
-      </div>
-      <section class="card">
-        <h2>Deadliest stretches</h2>
-        <table id="stretches"><thead><tr><th>Miles</th><th>Main road</th><th class="num" id="stretch-col">Deaths</th></tr></thead><tbody></tbody></table>
-        <p id="stretches-empty" class="note" hidden>No fatal crashes along this route in the selected years.</p>
-        <p class="note">Click a bar or a row to zoom to that stretch. A crash counts if it's within the chosen distance of the route line, so crashes on cross streets right at the route can be included. Counts aren't adjusted for traffic volume. Geocoding by OpenStreetMap Nominatim, routing by OSRM.</p>
-      </section>
-    </div>
-  </section>
-
-  <section id="compare" class="detail">
-    <h2>Compare</h2>
-    <p class="sub">Put up to 4 places or time periods side by side: the U.S., states, counties, cities or roads, each with its own years. The factor filters and the Measure control above apply here too.</p>
-    <form id="cmp-form" class="controls">
-      <label>Compare a
-        <select id="cmp-type">
-          <option value="county">County</option>
-          <option value="city">City</option>
-          <option value="road">Road</option>
-          <option value="state">State</option>
-          <option value="us">United States</option>
-        </select>
-      </label>
-      <label id="cmp-state-l">State <select id="cmp-state"></select></label>
-      <label id="cmp-county-l">County <select id="cmp-county"></select></label>
-      <label id="cmp-city-l" hidden>City <select id="cmp-city"></select></label>
-      <label id="cmp-road-l" hidden>Road <select id="cmp-road"></select></label>
-      <label>From <select id="cmp-y0"></select></label>
-      <label>To <select id="cmp-y1"></select></label>
-      <button id="cmp-add" type="submit">Add</button>
-    </form>
-    <p id="cmp-status" class="sub" aria-live="polite"></p>
-    <div id="cmp-results" hidden>
-      <div id="cmp-legend" class="cmp-legend"></div>
-      <div class="card cmp-table-wrap"><table id="cmp-table" class="cmp-table"></table></div>
-      <div class="cmp-grid">
-        <section class="card">
-          <div class="roads-head">
-            <h2>Over time</h2>
-            <select id="cmp-trend-mode" aria-label="Trend measure">
-              <option value="count">Count per year</option>
-              <option value="rate">Rate per 100k</option>
-            </select>
-          </div>
-          <svg id="cmp-trend" role="img" aria-label="Trend for each compared item"></svg>
-        </section>
-        <section class="card">
-          <h2>Time of day</h2>
-          <svg id="cmp-hours" role="img" aria-label="Share of crashes by hour for each compared item"></svg>
-        </section>
-        <section class="card">
-          <h2>What's involved <span class="sub">(% of fatal crashes)</span></h2>
-          <svg id="cmp-factors" role="img" aria-label="Share of crashes with each factor"></svg>
-        </section>
-        <section class="card">
-          <h2>Crash type <span class="sub">(% of fatal crashes)</span></h2>
-          <svg id="cmp-types" role="img" aria-label="Crash type mix"></svg>
-        </section>
-      </div>
-      <p class="note">Percentages compare the mix of crashes, so big and small places can be read side by side. Cities and roads have no population in FARS, so they get counts and shares but no per-100k rate. Roads use crashes with map locations (2001 on).</p>
-    </div>
-  </section>
-
-  <section id="policy" class="detail">
-    <h2>Before / after a law</h2>
-    <p class="sub">See how crashes changed after a state traffic law (or any date you enter) took effect, next to the same change in a comparison group, so national trends aren't mistaken for the law's effect. Factor filters and the Measure control apply.</p>
-    <form id="pol-form" class="controls">
-      <label>Place
-        <select id="pol-type">
-          <option value="state">State</option>
-          <option value="county">County</option>
-          <option value="city">City</option>
-          <option value="road">Road</option>
-        </select>
-      </label>
-      <label id="pol-state-l">State <select id="pol-state"></select></label>
-      <label id="pol-county-l" hidden>County <select id="pol-county"></select></label>
-      <label id="pol-city-l" hidden>City <select id="pol-city"></select></label>
-      <label id="pol-road-l" hidden>Road <select id="pol-road"></select></label>
-      <label class="grow">Law or event <select id="pol-event"></select></label>
-      <span id="pol-custom" class="pol-custom" hidden>
-        <label>Date <input id="pol-cdate" type="date" min="1975-01-01" max="2024-12-31" value="2015-07-01" required></label>
-        <label>Label <input id="pol-clabel" type="text" placeholder="e.g. Speed cameras installed"></label>
-      </span>
-      <button id="pol-forget" type="button" hidden>Delete this event</button>
-      <label>Years each side
-        <select id="pol-n"><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option></select>
-      </label>
-      <label>Compare with
-        <select id="pol-ctrl"><option value="us">Rest of the U.S.</option><option value="state">Rest of the state</option></select>
-      </label>
-      <button type="submit">Show</button>
-    </form>
-    <p id="pol-status" class="sub" aria-live="polite"></p>
-    <div id="pol-results" hidden>
-      <p id="pol-summary" class="pol-summary"></p>
-      <button id="pol-suggest" type="button" class="pol-suggest" hidden></button>
-      <div class="cmp-grid">
-        <section class="card">
-          <h2>Indexed trend</h2>
-          <div id="pol-legend" class="cmp-legend"></div>
-          <svg id="pol-chart" role="img" aria-label="Crashes before and after the event, place vs comparison"></svg>
-        </section>
-        <section class="card">
-          <h2>Before vs after</h2>
-          <table id="pol-table" class="pol-table"></table>
-          <p class="note" id="pol-source"></p>
-          <p class="note">This compares trends; it can't prove the law caused the change, since other things (enforcement, the economy, other laws) can shift at the same time. State law years come from the Correlates of State Policy Project and are only known to the year, so the years when a law took effect are left out; custom events use the exact date, with 12-month periods on each side. Its records end around 2010–2016, so newer laws aren't listed; use a custom event for those.</p>
-        </section>
-      </div>
-    </div>
-  </section>
 
   <div id="tooltip" class="tooltip" hidden></div>
 

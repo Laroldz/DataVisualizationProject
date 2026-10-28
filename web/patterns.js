@@ -200,6 +200,5 @@ function initPatterns() {
     pat.visible = entries.some(e => e.isIntersecting);
     if (pat.visible && pat.dirty) refreshPatterns();
   }, { rootMargin: "200px" }).observe($("patterns"));
-  $("to-patterns").addEventListener("click", () => $("patterns").scrollIntoView({ behavior: "smooth", block: "start" }));
   darkQuery.addEventListener("change", refreshPatterns);
 }
