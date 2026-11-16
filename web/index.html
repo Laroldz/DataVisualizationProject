@@ -12,6 +12,7 @@
   <nav class="topnav">
     <a class="brand" href="#top">U.S. Traffic Fatality Explorer</a>
     <div class="navlinks">
+      <a href="#g-drive" class="pill" data-accent="green"><i></i>Check your drive</a>
       <a href="#g-glance" class="pill" data-accent="rose"><i></i>At a glance</a>
       <a href="#g-map" class="pill" data-accent="blue"><i></i>Map</a>
       <a href="#g-street" class="pill" data-accent="teal"><i></i>Street level</a>
@@ -21,16 +22,100 @@
   </nav>
 
   <header id="top">
-    <p class="sub">Fatal motor-vehicle crashes (NHTSA FARS, 1975–2024) by state and county, normalized by population (NCI SEER). The settings bar at the bottom of the screen (measure, years, filters) applies to every view on the page.</p>
+    <p class="sub">Every fatal crash on U.S. roads from 1975 to 2024 (NHTSA FARS), so you can see where, when and under what conditions they happen on the roads you drive. The settings bar at the bottom of the screen applies to every view.</p>
+    <ol class="howto">
+      <li><a href="#g-drive"><b>1</b> Check your drive</a><span>Crashes along a route you take</span></li>
+      <li><a href="#g-map"><b>2</b> Explore your area</a><span>Search or click your state or county</span></li>
+      <li><a href="#g-patterns"><b>3</b> Dig into patterns</a><span>When, in what weather, and why</span></li>
+    </ol>
     <label class="searchbar">Find a state or county
       <input id="search" type="search" list="places" placeholder="e.g. Harris, Texas" autocomplete="off">
       <datalist id="places"></datalist>
     </label>
   </header>
 
-  <section id="g-glance" class="group" data-accent="rose">
+  <section id="g-drive" class="group" data-accent="green">
     <div class="group-head">
       <span class="num">1</span>
+      <div><h2>Check your drive</h2><p class="sub">Enter where you start and where you're going to see the fatal crashes recorded along that route (2001 on), which stretches are worst, and how your usual travel time compares.</p></div>
+    </div>
+    <section id="route" class="block">
+      <form id="route-form" class="controls route-form">
+        <label class="grow">From <input id="r-from" type="text" value="Texas A&amp;M University, College Station, TX" required></label>
+        <label class="grow">To <input id="r-to" type="text" value="Downtown Houston, TX" required></label>
+        <label>When do you usually drive?
+          <span class="trip-pick">
+            <select id="r-day" aria-label="Day">
+              <option value="any">Any day</option>
+              <option value="weekday">Weekdays</option>
+              <option value="weekend">Weekends</option>
+              <option value="2">Monday</option><option value="3">Tuesday</option><option value="4">Wednesday</option>
+              <option value="5">Thursday</option><option value="6">Friday</option><option value="7">Saturday</option><option value="1">Sunday</option>
+            </select>
+            <select id="r-time" aria-label="Time"></select>
+            <select id="r-season" aria-label="Season">
+              <option value="any">Any season</option>
+              <option value="winter">Winter (Dec–Feb)</option>
+              <option value="spring">Spring (Mar–May)</option>
+              <option value="summer">Summer (Jun–Aug)</option>
+              <option value="fall">Fall (Sep–Nov)</option>
+            </select>
+          </span>
+        </label>
+        <label title="A crash counts if it happened within this distance of the route line.">Count crashes within
+          <select id="r-buffer">
+            <option value="50">50 m of the route</option>
+            <option value="100" selected>100 m of the route</option>
+            <option value="200">200 m of the route</option>
+          </select>
+        </label>
+        <button id="r-go" type="submit" class="primary">Check my drive</button>
+      </form>
+      <p class="note">The addresses are filled in with an example: press <b>Check my drive</b> to try it, or type your own.
+        <span id="drive-saved" hidden>Your saved drive is filled in. <button id="forget-drive" type="button" class="linkish">Forget it</button></span></p>
+      <div class="chips-row"><span>Focus on:</span><div class="chips" data-chips></div></div>
+      <p id="r-status" class="sub" aria-live="polite"></p>
+      <div id="r-results" hidden>
+        <div class="share-row">
+          <button id="share-drive" type="button" title="Copy a link that opens this drive with the same settings">Copy link to this drive</button>
+          <button id="save-drive" type="button" title="Fill in this drive automatically next time you open the page">Save as my usual drive</button>
+          <span id="share-msg" class="muted" aria-live="polite"></span>
+        </div>
+        <section id="alt-card" class="card" hidden>
+          <div class="roads-head">
+            <h2>Compare routes</h2>
+            <label class="inline-check"><input type="checkbox" id="alt-all"> Show all routes' crashes on the map</label>
+          </div>
+          <table id="alts"><thead><tr><th>Route</th><th class="num">Miles</th><th class="num">Drive time</th><th class="num">Fatal crashes</th><th class="num">Deaths</th><th class="num">Deaths per 10 miles</th></tr></thead><tbody></tbody></table>
+          <p class="note">Other ways to make the same trip, from the routing service. Click a route to see its details below; the one with the fewest deaths per mile is marked. Counts depend on how much traffic each road carries, which FARS doesn't record.</p>
+        </section>
+        <section id="drive-card" class="card drive-card" aria-live="polite"></section>
+        <div class="detail-grid">
+          <div class="map-card">
+            <div id="routemap"></div>
+            <svg id="strip" viewBox="0 0 640 140" role="img" aria-label="Crashes by distance along the route"></svg>
+          </div>
+          <div>
+            <section class="card">
+              <h2>Your trip time</h2>
+              <p id="trip-text" class="trip-text"></p>
+              <svg id="trip-heat" role="img" aria-label="Crashes on this route by day of week and hour"></svg>
+            </section>
+            <section class="card">
+              <h2>Deadliest stretches</h2>
+              <table id="stretches"><thead><tr><th>Miles</th><th>Main road</th><th class="num" id="stretch-col">Deaths</th></tr></thead><tbody></tbody></table>
+              <p id="stretches-empty" class="note" hidden>No fatal crashes along this route in the selected years.</p>
+              <p class="note">Click a bar or a row to zoom to that stretch. Counts aren't adjusted for traffic volume, so busy roads naturally have more crashes. Address lookup by OpenStreetMap Nominatim, routing by OSRM.</p>
+            </section>
+          </div>
+        </div>
+      </div>
+    </section>
+  </section>
+
+  <section id="g-glance" class="group" data-accent="rose">
+    <div class="group-head">
+      <span class="num">2</span>
       <div><h2>The United States at a glance</h2><p id="glance-sub" class="sub"></p></div>
     </div>
     <div id="kpis" class="kpis"></div>
@@ -44,12 +129,12 @@
         <table id="rank-county"><thead><tr><th>#</th><th>County</th><th class="num rank-col">Value</th><th class="num">Pop.</th></tr></thead><tbody></tbody></table>
       </section>
     </div>
-    <p class="note">Click a row to find it on the map.</p>
+    <p class="note">Click a row to find it on the map. Counties with fewer than 10,000 residents are left out of the county list, because a handful of crashes makes their rates swing wildly.</p>
   </section>
 
   <section id="g-map" class="group" data-accent="blue">
     <div class="group-head">
-      <span class="num">2</span>
+      <span class="num">3</span>
       <div><h2>Explore the map</h2><p class="sub">Click a state to zoom in, or a county to see its roads.</p></div>
     </div>
 
@@ -62,6 +147,7 @@
       </label>
     </div>
 
+    <div class="chips-row"><span>Focus on:</span><div class="chips" data-chips></div></div>
     <details id="filters" class="filters">
       <summary>Filter crashes by factor <span id="filter-count" class="badge">none</span></summary>
       <div class="filter-body">
@@ -70,7 +156,7 @@
           <button id="filter-clear" type="button" hidden>Clear all filters</button>
           <span id="filter-status" class="sub" aria-live="polite"></span>
         </div>
-        <p class="note">Filters apply to every view on the page. "Involved" means at least one such person or vehicle was in the crash. Alcohol is a police-reported drinking driver; speeding is police-reported speeding-related. FARS changed how it codes some factors over the years; see the README for how they were matched up.</p>
+        <p class="note">Filters apply to every view on the page. "Involved" means at least one such person or vehicle was in the crash. Alcohol is a police-reported drinking driver; speeding is police-reported speeding-related. Driver distraction is recorded from 2010 and is often marked "not reported", so distraction counts are a lower bound. FARS changed how it codes some factors over the years; see the README for how they were matched up.</p>
       </div>
     </details>
     <p id="filter-gaps" class="gaps"></p>
@@ -80,6 +166,10 @@
         <svg id="map" viewBox="0 0 975 610" role="img" aria-label="Choropleth map of the United States"></svg>
         <div id="legend" class="legend"></div>
         <p class="note" id="note"></p>
+        <details class="how">
+          <summary>How is this calculated?</summary>
+          <p class="note">Rates are deaths (or fatal crashes) divided by residents over the selected years, per 100,000 people per year. Counties with few residents can show extreme rates from one or two crashes, so the adjusted rate pulls each county toward its state's rate (and each state toward the national rate) in proportion to how little data it has. This is a standard method called empirical Bayes smoothing. Large counties barely move; very small ones move most. Map colors are split into seven groups with about the same number of areas in each.</p>
+        </details>
       </section>
 
       <aside>
@@ -95,8 +185,8 @@
 
   <section id="g-street" class="group" data-accent="teal">
     <div class="group-head">
-      <span class="num">3</span>
-      <div><h2>Street level</h2><p class="sub">Crashes on real roads (2001 on): the deadliest roads in a county, or every crash along a driving route.</p></div>
+      <span class="num">4</span>
+      <div><h2>Street level</h2><p class="sub">Every mapped crash in a county (2001 on), on a street map, with its deadliest roads.</p></div>
     </div>
 
     <label class="searchbar compact">Find a county's roads
@@ -110,56 +200,42 @@
           <h3 id="d-title"></h3>
           <p id="d-sub" class="sub"></p>
         </div>
-        <button id="d-back" type="button">↑ Back to map</button>
+        <div class="detail-actions">
+          <button id="save-area" type="button" title="Open the page on this county next time">☆ Save as my area</button>
+          <button id="share-area" type="button" title="Copy a link that opens this county's road view">Copy link</button>
+          <button id="d-back" type="button">↑ Back to map</button>
+          <span id="area-msg" class="muted" aria-live="polite"></span>
+        </div>
       </div>
       <div class="detail-grid">
         <div class="map-card"><div id="roadmap"></div></div>
         <section class="card">
           <div class="roads-head">
-            <h2 id="roads-title">Deadliest roads</h2>
+            <div class="seg" role="tablist" aria-label="Rank by">
+              <button type="button" role="tab" id="tab-roads" class="on" aria-selected="true">Deadliest roads</button>
+              <button type="button" role="tab" id="tab-spots" aria-selected="false">Most dangerous spots</button>
+            </div>
             <button id="d-clear" type="button">Show all</button>
           </div>
-          <table id="roads"><thead><tr><th>#</th><th>Road</th><th class="num">Crashes</th><th class="num">Deaths</th></tr></thead><tbody></tbody></table>
-          <p class="note">Click a road to highlight its crashes, or click a dot to highlight its road. Dot size shows deaths per crash. Rankings are raw counts: FARS has no per-road traffic volume, so busy highways naturally rank high.</p>
+          <div id="pane-roads">
+            <table id="roads"><thead><tr><th>#</th><th>Road</th><th class="num">Crashes</th><th class="num">Deaths</th></tr></thead><tbody></tbody></table>
+            <p class="note">Click a road to highlight its crashes, or click a dot to highlight its road. Dot color shows the kind of crash (see the map's legend) and dot size shows deaths. Rankings are raw counts: FARS has no per-road traffic volume, so busy highways naturally rank high.</p>
+          </div>
+          <div id="pane-spots" hidden>
+            <table id="spots"><thead><tr><th>#</th><th>Where</th><th class="num">Crashes</th><th class="num">Deaths</th></tr></thead><tbody></tbody></table>
+            <p id="spots-empty" class="note" hidden>No place in this county had two or more fatal crashes close together in these years.</p>
+            <p class="note">A spot is a place where several fatal crashes happened within about 100 m of each other, often an intersection or interchange. It's named after the roads most of its crashes were on. Click a spot to zoom to it.</p>
+          </div>
         </section>
       </div>
     </section>
     <p id="detail-hint" class="hint">Search for a county above, or click one on the map, to see its deadliest roads here.</p>
 
-    <section id="route" class="block">
-      <h3>Route explorer</h3>
-      <p class="sub">Enter a start and a destination to see the fatal crashes along the driving route.</p>
-      <form id="route-form" class="controls">
-        <label class="grow">From <input id="r-from" type="text" value="Texas A&amp;M University, College Station, TX" required></label>
-        <label class="grow">To <input id="r-to" type="text" value="Downtown Houston, TX" required></label>
-        <label>Within
-          <select id="r-buffer">
-            <option value="50">50 m of route</option>
-            <option value="100" selected>100 m of route</option>
-            <option value="200">200 m of route</option>
-          </select>
-        </label>
-        <button id="r-go" type="submit" class="primary">Show crashes</button>
-      </form>
-      <p id="r-status" class="sub" aria-live="polite"></p>
-      <div id="r-results" class="detail-grid" hidden>
-        <div class="map-card">
-          <div id="routemap"></div>
-          <svg id="strip" viewBox="0 0 640 140" role="img" aria-label="Crashes by distance along the route"></svg>
-        </div>
-        <section class="card">
-          <h2>Deadliest stretches</h2>
-          <table id="stretches"><thead><tr><th>Miles</th><th>Main road</th><th class="num" id="stretch-col">Deaths</th></tr></thead><tbody></tbody></table>
-          <p id="stretches-empty" class="note" hidden>No fatal crashes along this route in the selected years.</p>
-          <p class="note">Click a bar or a row to zoom to that stretch. A crash counts if it's within the chosen distance of the route line, so crashes on cross streets right at the route can be included. Counts aren't adjusted for traffic volume. Geocoding by OpenStreetMap Nominatim, routing by OSRM.</p>
-        </section>
-      </div>
-    </section>
   </section>
 
   <section id="g-patterns" class="group" data-accent="amber">
     <div class="group-head">
-      <span class="num">4</span>
+      <span class="num">5</span>
       <div><h2 id="pat-title">When &amp; weather</h2><p class="sub">For the area selected on the map (or the whole U.S.), by month, day, hour and weather.</p></div>
     </div>
     <section id="patterns">
@@ -187,7 +263,7 @@
 
   <section id="g-compare" class="group" data-accent="violet">
     <div class="group-head">
-      <span class="num">5</span>
+      <span class="num">6</span>
       <div><h2>Compare &amp; evaluate</h2><p class="sub">Put places and periods side by side, or test what changed after a law.</p></div>
     </div>
 
@@ -296,21 +372,25 @@
   </section>
 
   <form id="controls" class="floatbar" onsubmit="return false" aria-label="Settings for every view">
-    <label>Measure
+    <label title="Count people who died, or count crashes in which at least one person died.">Count
       <select id="measure">
-        <option value="fatals">Fatalities</option>
+        <option value="fatals">Deaths</option>
         <option value="crashes">Fatal crashes</option>
       </select>
     </label>
-    <label>Show
+    <label title="Per 100,000 residents makes big and small places comparable. The adjusted version keeps tiny counties from showing extreme rates.">Show
       <select id="norm">
-        <option value="smoothed">Smoothed rate per 100k</option>
-        <option value="rate">Rate per 100k</option>
-        <option value="count">Raw count</option>
+        <option value="smoothed">Per 100,000 residents (adjusted)</option>
+        <option value="rate">Per 100,000 residents</option>
+        <option value="count">Total</option>
         <option value="share">Share matching filters (%)</option>
       </select>
     </label>
     <label>Years <span class="years"><select id="y0" aria-label="From"></select>–<select id="y1" aria-label="To"></select></span></label>
+    <span class="focus-pop">
+      <button id="float-focus" type="button" aria-expanded="false" aria-controls="focus-panel">Focus on <span id="float-focus-count" class="badge">none</span></button>
+      <span id="focus-panel" class="focus-panel" hidden><span class="chips" data-chips></span></span>
+    </span>
     <button id="float-filters" type="button">Filters <span id="float-filter-count" class="badge">none</span></button>
     <button id="reset" type="button" title="Clear the selection and zoom">↺ Reset view</button>
   </form>
@@ -320,6 +400,7 @@
   <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
   <script src="filters.js"></script>
   <script src="main.js"></script>
   <script src="county.js"></script>
@@ -327,5 +408,6 @@
   <script src="compare.js"></script>
   <script src="policy.js"></script>
   <script src="patterns.js"></script>
+  <script src="share.js"></script>
 </body>
 </html>

@@ -7,7 +7,7 @@ const CMP_MAX = 4;
 const CMP_COLORS = { light: ["#2a78d6", "#eb6834", "#1baf7a", "#eda100"], dark: ["#5aa9ff", "#ff8a5c", "#3dd6a0", "#ffd166"] };
 const CMP_TYPES = { us: "United States", state: "State", county: "County", city: "City", road: "Road" };
 const CMP_FACTORS = ["alcohol", "speeding", "pedestrian", "bicyclist", "motorcycle", "large_truck",
-                     "hit_run", "work_zone", "young_driver", "older_driver"];
+                     "hit_run", "work_zone", "young_driver", "older_driver", "distracted", "drowsy"];
 const cmp = { items: [], request: 0, stats: [] };
 
 const cmpColor = slot => (darkQuery.matches ? CMP_COLORS.dark : CMP_COLORS.light)[slot];
@@ -227,7 +227,7 @@ function drawCompareTable() {
     ["Deaths", d => fmtInt(d.s.deaths)],
     [`${MEASURE_LABEL[measure][0].toUpperCase()}${MEASURE_LABEL[measure].slice(1)} per year`,
       d => fmtRate(perYear(d)) + (d === first ? "" : delta(perYear(d), perYear(first)))],
-    [`Rate per 100k / yr`, d => d.rate == null ? `<span class="muted">no population</span>`
+    [`Per 100,000 residents / yr`, d => d.rate == null ? `<span class="muted">no population</span>`
       : fmtRate(d.rate) + (d === first ? "" : delta(d.rate, first.rate))],
     ["Deaths per crash", d => d.s.crashes ? d3.format(".2f")(d.s.deaths / d.s.crashes) : "–"],
   ];

@@ -13,6 +13,7 @@ const FLAG_LABELS = {
   motorcycle: "Motorcycle involved", large_truck: "Large truck involved",
   hit_run: "Hit-and-run", work_zone: "Work zone",
   young_driver: "Driver age 15–20", older_driver: "Driver age 65+",
+  distracted: "Distracted driver", drowsy: "Drowsy driver",
 };
 const TIME_OPTIONS = {
   night: ["Night (12–6 am)", h => h < 6],
@@ -26,9 +27,22 @@ const DAY_OPTIONS = {
 };
 
 const filters = {
-  meta: null, active: {}, table: null, tableLoading: null,
+  meta: null, active: {}, table: null, tableLoading: null, onChange: null,
   match: () => true,
 };
+
+// One-click "Focus on" chips. Each sets ordinary filters, so the badge, summary and every view
+// follow along. Category values are looked up by label in initFilters (codes can change).
+const SCENARIOS = [
+  { label: "Lane changes & merging", set: { crash_type: "Sideswipe, same direction" } },
+  { label: "Distracted driving", set: { distracted: "yes" } },
+  { label: "Drowsy driving", set: { drowsy: "yes" } },
+  { label: "Drunk driving", set: { alcohol: "yes" } },
+  { label: "Speeding", set: { speeding: "yes" } },
+  { label: "At night", set: { time: "night" } },
+  { label: "Rain", set: { weather: "Rain" } },
+  { label: "Teen drivers", set: { young_driver: "yes" } },
+];
 
 function catIndex(key) { return Object.keys(filters.meta.categories).indexOf(key); }
 function flagIndex(key) { return filters.meta.flags.indexOf(key); }
@@ -107,6 +121,13 @@ function describeCrash(cats, flags) {
 
 function initFilters(meta, onChange) {
   filters.meta = meta;
+  filters.onChange = onChange;
+  // Resolve category labels to codes, e.g. "Rain" -> "2".
+  for (const sc of SCENARIOS) {
+    for (const [key, val] of Object.entries(sc.set)) {
+      if (key in meta.categories) sc.set[key] = String(meta.categories[key].findIndex(l => l.startsWith(val)) + 1);
+    }
+  }
   const groups = [
     ["Conditions", ["weather", "light", "surface"]],
     ["Crash & road", ["crash_type", "road_type", "area"]],
@@ -141,6 +162,28 @@ function initFilters(meta, onChange) {
     compileFilter();
     onChange();
   });
+  d3.selectAll("[data-chips]").selectAll("button").data(SCENARIOS).join("button")
+    .attr("type", "button").attr("class", "chip-btn").text(d => d.label)
+    .on("click", (e, d) => toggleScenario(d));
+
+  // The settings bar's "Focus on" button opens the chips just above the bar.
+  const panel = $("focus-panel"), button = $("float-focus");
+  const setOpen = open => { panel.hidden = !open; button.setAttribute("aria-expanded", String(open)); };
+  button.addEventListener("click", () => setOpen(panel.hidden));
+  document.addEventListener("click", e => { if (!e.target.closest(".focus-pop")) setOpen(false); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape") setOpen(false); });
+}
+
+const scenarioOn = sc => Object.entries(sc.set).every(([k, v]) => filters.active[k] === v);
+
+function toggleScenario(sc) {
+  const on = scenarioOn(sc);
+  for (const [key, val] of Object.entries(sc.set)) {
+    if (on) delete filters.active[key]; else filters.active[key] = val;
+    d3.select(`#filter-grid select[data-key="${key}"]`).property("value", on ? "" : val).classed("on", !on);
+  }
+  compileFilter();
+  filters.onChange();
 }
 
 function updateFilterHeader(y0, y1) {
@@ -148,6 +191,10 @@ function updateFilterHeader(y0, y1) {
   $("filter-count").textContent = $("float-filter-count").textContent = n ? `${n} active` : "none";
   $("float-filters").classList.toggle("on", n > 0);
   $("filter-clear").hidden = !n;
+  d3.selectAll(".chip-btn").classed("on", scenarioOn).attr("aria-pressed", d => scenarioOn(d));
+  const focused = SCENARIOS.filter(scenarioOn).length;
+  $("float-focus-count").textContent = focused ? `${focused} on` : "none";
+  $("float-focus").classList.toggle("on", focused > 0);
   const gaps = filterActive() ? filterGaps(y0, y1) : [];
   $("filter-gaps").textContent = gaps.length
     ? `Heads up: ${gaps.join("; ")}. Those years show no matching crashes under this filter, so rates there drop to zero.`

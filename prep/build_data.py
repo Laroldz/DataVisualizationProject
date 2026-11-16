@@ -85,6 +85,8 @@ ACCIDENT_COLS = ["ST_CASE", "STATE", "COUNTY", "FATALS", "MONTH", "DAY", "DAY_WE
 VEHICLE_COLS = ["ST_CASE", "VEH_NO", "BODY_TYP", "HIT_RUN", "DR_DRINK", "SPEEDREL", "VSURCOND",
                 "DR_CF1", "DR_CF2", "DR_CF3", "DR_CF4"]
 PERSON_COLS = ["ST_CASE", "PER_TYP", "AGE"]
+DISTRACT_COLS = ["ST_CASE", "VEH_NO", "MDRDSTRD", "DRDISTRACT"]  # DISTRACT table exists from 2010
+DRIMPAIR_COLS = ["ST_CASE", "VEH_NO", "DRIMPAIR"]                 # DRIMPAIR table exists from 2010
 
 
 def load_fars():
@@ -93,7 +95,9 @@ def load_fars():
         a = read_fars(year, "accident", ACCIDENT_COLS)
         v = read_fars(year, "vehicle", VEHICLE_COLS)
         p = read_fars(year, "person", PERSON_COLS)
-        cats, flags = factors.encode(a, v, p, year)
+        d = read_fars(year, "distract", DISTRACT_COLS) if year >= 2010 else None
+        imp = read_fars(year, "drimpair", DRIMPAIR_COLS) if year >= 2010 else None
+        cats, flags = factors.encode(a, v, p, year, d, imp)
         keep = [c for c in ["STATE", "COUNTY", "CITY", "CITYNAME", "FATALS", "MONTH", "DAY", "DAY_WEEK", "HOUR", "LATITUDE", "LONGITUD", "TWAY_ID"] if c in a]
         frames.append(a[keep].assign(YEAR=year, CATS=cats, FLAGS=flags))
         print(f"\r{year}", end="", flush=True)
@@ -157,14 +161,16 @@ def city_list(fars):
 
 
 def availability(fars):
-    """Years in which each factor is recorded for at least half of crashes."""
+    """Years in which each factor is recorded for at least a fifth of crashes. (Driver distraction is
+    reported for only ~40% of crashes since 2018, but it is still recorded; other factors are either
+    near 0% or well above 50% in every year.)"""
     out = {}
     cats, flags = fars.CATS.to_numpy(), fars.FLAGS.to_numpy()
     fields = [(name, cats, factors.CAT_BITS * i, 0xF) for i, name in enumerate(factors.CATEGORIES)] + \
              [(name, flags, 2 * i, 3) for i, name in enumerate(factors.FLAGS)]
     for name, packed, shift, mask in fields:
         share = pd.Series(((packed >> shift) & mask) > 0).groupby(fars.YEAR.to_numpy()).mean()
-        out[name] = [int(y) for y in share.index[share >= 0.5]]
+        out[name] = [int(y) for y in share.index[share >= 0.2]]
     return out
 
 

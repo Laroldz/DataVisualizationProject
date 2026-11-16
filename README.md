@@ -10,13 +10,14 @@ python -m http.server -d web 8000
 
 Then open http://localhost:8000. The aggregated data in `web/data/` is committed, so the raw FARS files aren't needed to view the map.
 
-The page uses one soft light theme and is split into five color-coded groups, linked from the sticky top bar: **1 The United States at a glance** (national totals, change vs the previous period, deadliest year, top 10 states and counties), **2 Explore the map** (level, filters, map), **3 Street level** (county road view, route explorer), **4 When & weather** and **5 Compare & evaluate** (compare, before/after a law). A search box sits above group 1. Measure, Show, the year range and the filters live in a small settings bar that floats at the bottom of the screen and applies to every group. Click a group's header to collapse or expand it; the browser remembers which groups are collapsed, and jumping to a group (nav links, search, clicking a county) opens it.
+The page uses one soft light theme and is split into six color-coded groups, linked from the sticky top bar: **1 Check your drive** (route explorer with trip time, a plain-language summary and a heat map), **2 The United States at a glance** (national totals, change vs the previous period, deadliest year, top 10 states and counties), **3 Explore the map** (level, filters, map), **4 Street level** (county road view), **5 When & weather** and **6 Compare & evaluate** (compare, before/after a law). A search box and a three-step guide sit above group 1. Count, Show, the year range and the filters live in a small settings bar that floats at the bottom of the screen and applies to every group. Click a group's header to collapse or expand it; the browser remembers which groups are collapsed, and jumping to a group (nav links, search, clicking a county) opens it. See [DRIVER_UPDATES.md](DRIVER_UPDATES.md) for the latest driver-focused changes.
 
 ## Rebuild the data
 
 ```
 python download.py            # raw FARS files -> FARS_Data/ (~6 GB, gitignored)
 python prep/build_data.py     # -> web/data/county_year.csv, state_year.csv, crashes/{fips}.json
+python prep/rest_stops.py     # -> web/data/rest_stops.json (U.S. rest areas and travel centers from OpenStreetMap; ~30-40 min)
 ```
 
 ## County road view
@@ -27,7 +28,7 @@ Click a county to open a street map of every fatal crash in it, with a ranked li
 
 ## Route explorer
 
-Enter a start and a destination to see every fatal crash (2001+) within 50, 100 or 200 m of the driving route. The view includes a chart of crashes by mile along the route and a list of the deadliest stretches. Addresses are geocoded with OpenStreetMap Nominatim and routes come from the public OSRM demo server. Both are free, rate-limited services meant for light use, so they're fine for demos but not for heavy traffic. Crash matching runs in the browser against the per-county files in `web/data/crashes/`.
+Enter a start and a destination to see every fatal crash (2001+) within 50, 100 or 200 m of the driving route. The view includes a plain-language "Your drive" summary (worst stretches, factors that stand out against the surrounding counties, the trend and driving tips), a "See all statistics" table comparing every factor and kind of crash with the surrounding counties, a "When do you usually drive?" comparison for a day, 2-hour window and season, rest areas and travel centers within 5 km of the route, a Dots/Heat map switch, dots colored by kind of crash (pick one or more kinds to spotlight), a chart of crashes by mile along the route and a list of the deadliest stretches. Addresses are geocoded with OpenStreetMap Nominatim and routes come from the public OSRM demo server. Both are free, rate-limited services meant for light use, so they're fine for demos but not for heavy traffic. Crash matching runs in the browser against the per-county files in `web/data/crashes/`.
 
 ## Compare
 
@@ -70,13 +71,13 @@ python prep/policies.py       # -> web/data/policies.json (downloads the CSPP pa
 The "Filter crashes by factor" panel narrows every view (map, rankings, trend chart, county road view and route explorer) by:
 
 - **Conditions:** weather, lighting, road surface
-- **Crash and road:** crash type (head-on, rear-end, angle, sideswipe, pedestrian, bicyclist, rollover, fixed object), road type, rural or urban
+- **Crash and road:** crash type (head-on, rear-end, angle, same-direction sideswipe from a lane change or merge, opposite-direction sideswipe, pedestrian, bicyclist, rollover, fixed object), road type, rural or urban
 - **When:** time of day, weekday or weekend
-- **Involved:** alcohol (police-reported drinking driver), speeding-related, pedestrian, bicyclist, motorcycle, large truck, hit-and-run, work zone, driver aged 15–20, driver aged 65+
+- **Involved:** alcohol (police-reported drinking driver), speeding-related, pedestrian, bicyclist, motorcycle, large truck, hit-and-run, work zone, driver aged 15–20, driver aged 65+, distracted driver and drowsy driver (both recorded from 2010; often not reported, so counts are a lower bound)
 
 With a filter active, the map can also show **Share matching filters (%)**: the smoothed percentage of each area's fatal crashes that match the filters (e.g. where alcohol is most often involved).
 
-FARS changed how it records several of these over 1975–2024. `prep/factors.py` maps each era's codes onto one set of categories. For example, weather was renumbered in 2010, speeding moved from driver contributing-factor codes to `SPEEDREL` in 2009, the crash-level drinking-driver count was dropped after 2020, and vehicle body types were recoded in 1982 and 1991. A few factors aren't recorded in early years: road type before 1981, work zone before 1981, large trucks before 1982. The page warns when the selected years include such gaps. All factors are packed into two integers per crash in `web/data/crash_table.bin.gz` (about 2.2 million crashes), which the page loads the first time a filter is used.
+FARS changed how it records several of these over 1975–2024. `prep/factors.py` maps each era's codes onto one set of categories. For example, weather was renumbered in 2010, speeding moved from driver contributing-factor codes to `SPEEDREL` in 2009, the crash-level drinking-driver count was dropped after 2020, and vehicle body types were recoded in 1982 and 1991. A few factors aren't recorded in early years: road type before 1981, work zone before 1981, large trucks before 1982. The page warns when the selected years include such gaps. All factors are packed into two integers per crash in `web/data/crash_table.bin.gz` (about 1.87 million crashes), which the page loads the first time a filter is used.
 
 ## Normalization
 

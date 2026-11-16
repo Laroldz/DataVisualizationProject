@@ -18,6 +18,7 @@
   --amber: #d97706;
   --violet: #7c4ddb;
   --rose: #d6336c;
+  --green: #2b8a3e;
   --up: #c2410c;
   --down: #0f7a52;
   --on-accent: #ffffff;
@@ -29,6 +30,7 @@
 [data-accent="amber"] { --accent: var(--amber); --series-1: var(--amber); }
 [data-accent="violet"] { --accent: var(--violet); --series-1: var(--violet); }
 [data-accent="rose"] { --accent: var(--rose); --series-1: var(--rose); }
+[data-accent="green"] { --accent: var(--green); --series-1: var(--green); }
 
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
@@ -335,3 +337,132 @@ input[type="date"] { font: inherit; color: var(--ink); background: var(--surface
 .tooltip b { display: block; margin-bottom: 4px; }
 .tooltip .row { display: flex; justify-content: space-between; gap: 16px; }
 .tooltip .row span { color: var(--ink-2); }
+
+/* ---------- driver-focused additions ---------- */
+.howto { list-style: none; padding: 0; margin: 0 0 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; max-width: 900px; }
+.howto li { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
+.howto a { color: var(--ink); font-weight: 600; text-decoration: none; display: flex; align-items: center; gap: 8px; }
+.howto a b { width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; background: var(--green); color: #fff; font-size: 12px; }
+.howto li:nth-child(2) a b { background: var(--blue); }
+.howto li:nth-child(3) a b { background: var(--amber); }
+.howto a:hover { text-decoration: underline; }
+.howto span { color: var(--ink-2); font-size: 13px; padding-left: 30px; }
+
+.chips-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 6px 0 12px; }
+.chips-row > span { font-size: 12px; color: var(--ink-2); font-weight: 600; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip-btn { border-radius: 999px; padding: 4px 12px; font-size: 13px; background: var(--surface-2); border: 1px solid var(--axis); }
+.chip-btn:hover { border-color: var(--accent); }
+.chip-btn.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
+
+.route-form { align-items: end; }
+.trip-pick { display: flex; gap: 6px; }
+
+.drive-card { margin-bottom: 16px; border-left: 0; }
+.drive-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px 24px; }
+.drive-head > div:first-child { flex: 1 1 420px; }
+.eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); }
+.drive-big { font-size: 18px; margin: 4px 0; line-height: 1.35; }
+.drive-big b { font-size: 22px; }
+.drive-trend p { margin: 4px 0; font-size: 13px; }
+.spark { width: 160px; height: 34px; display: block; }
+.spark path { fill: none; stroke: var(--accent); stroke-width: 2; }
+.spark circle { fill: var(--accent); }
+.drive-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px 20px; margin-top: 12px; }
+.drive-cols h3 { font-size: 13px; color: var(--ink); margin: 0 0 4px; }
+.drive-cols ul { margin: 0; padding-left: 18px; font-size: 13.5px; display: grid; gap: 4px; }
+.muted { color: var(--muted); }
+
+.trip-text { font-size: 13.5px; margin: 0 0 8px; }
+#trip-heat { width: 100%; height: auto; display: block; }
+#trip-heat .axis-lab { font-size: 9px; fill: var(--muted); }
+#trip-heat .slot { fill: none; stroke: var(--ink); stroke-width: 1.5; }
+
+.map-toggle { display: flex; background: var(--surface-2); border: 1px solid var(--axis); border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgb(0 0 0 / 0.15); }
+.map-toggle button { border: 0; border-radius: 0; padding: 5px 10px; font-size: 12px; background: transparent; }
+.map-toggle button.on { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+.heat-legend { display: flex; align-items: center; gap: 6px; background: rgb(255 255 255 / 0.92); padding: 4px 8px; border-radius: 6px; font-size: 11px; color: var(--ink-2); }
+.heat-legend[hidden] { display: none; }
+.heat-legend i { width: 110px; height: 8px; border-radius: 4px; display: inline-block; }
+
+.warn-few { color: var(--up); }
+details.how { margin-top: 6px; }
+details.how summary { cursor: pointer; font-size: 12px; color: var(--ink-2); }
+
+/* "Focus on" chips in the floating settings bar: a small panel that opens above the bar. */
+.focus-pop { position: relative; display: inline-flex; }
+.floatbar #float-focus.on { border-color: var(--blue); color: var(--blue); }
+.focus-panel { position: absolute; bottom: calc(100% + 12px); left: 50%; transform: translateX(-50%); width: max-content; max-width: min(460px, calc(100vw - 32px));
+  background: var(--surface-2); border: 1px solid var(--axis); border-radius: 12px; padding: 10px; box-shadow: 0 6px 24px rgb(26 32 48 / 0.18); }
+.focus-panel[hidden] { display: none; }
+.focus-panel .chips { justify-content: center; }
+.focus-panel .chip-btn { text-transform: none; letter-spacing: 0; }
+.focus-panel .chip-btn.on { background: var(--blue); border-color: var(--blue); }
+@media (max-width: 640px) {
+  /* The bar wraps to two rows on phones, so pin the panel to the screen edges above it. */
+  .focus-panel { position: fixed; left: 16px; right: 16px; bottom: 140px; transform: none; width: auto; max-width: none; }
+}
+
+/* ---------- distracted driving, dangerous spots, route alternatives, save & share ---------- */
+.seg { display: inline-flex; border: 1px solid var(--axis); border-radius: 8px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; padding: 4px 10px; font-size: 13px; font-weight: 600; background: var(--surface-2); }
+.seg button.on { background: var(--accent); color: var(--on-accent); }
+#spots td:nth-child(2) { overflow-wrap: anywhere; }
+#spots tr.active td, #alts tr.active td { background: color-mix(in srgb, var(--accent) 20%, transparent); font-weight: 600; }
+#alt-card { margin-bottom: 16px; }
+.tag-best { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 600;
+  background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+.share-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin: 0 0 12px; }
+.detail-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 6px; }
+.detail-actions .muted { flex-basis: 100%; text-align: right; font-size: 12px; }
+.share-input { width: min(420px, 80vw); font: inherit; font-size: 12px; padding: 2px 6px; }
+.linkish { border: 0; background: none; padding: 0; color: var(--accent); text-decoration: underline; font-size: inherit; cursor: pointer; }
+
+/* Crash-kind legend on the street maps */
+.type-legend { background: rgb(255 255 255 / 0.94); border-radius: 8px; padding: 6px 8px; box-shadow: 0 1px 4px rgb(0 0 0 / 0.15);
+  display: flex; flex-direction: column; gap: 1px; font-size: 11.5px; max-width: 240px; }
+.type-legend[hidden] { display: none; }
+.type-legend b { font-size: 11px; color: var(--ink-2); margin-bottom: 2px; }
+.type-legend button { display: flex; align-items: center; gap: 6px; border: 0; background: none; padding: 2px 4px; border-radius: 4px;
+  font-size: 11.5px; text-align: left; color: var(--ink); cursor: pointer; }
+.type-legend button:hover { background: var(--surface); }
+.type-legend button.on { background: var(--surface); font-weight: 700; }
+.type-legend button.dim { opacity: 0.45; }
+.type-legend button i { width: 10px; height: 10px; border-radius: 50%; flex: none; border: 1px solid #fff; box-shadow: 0 0 0 1px rgb(0 0 0 / 0.15); }
+.type-legend button span { margin-left: auto; padding-left: 8px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.type-legend small { color: var(--muted); font-size: 10.5px; margin-top: 2px; }
+
+/* Route letter badges and the "show all routes" switch */
+.route-badge { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; font: 700 12px/1 system-ui, sans-serif;
+  background: #ffffff; color: var(--ink); border: 2px solid var(--ink-2); box-shadow: 0 1px 3px rgb(0 0 0 / 0.25); cursor: pointer; }
+.route-badge.sel { background: var(--ink); color: #ffffff; border-color: var(--ink); }
+.inline-check { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-2); cursor: pointer; }
+
+/* Rest stops: blue "P" squares, like U.S. road-service signs (travel centers a little darker). */
+.stop-icon { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 4px; background: #1864ab; color: #fff;
+  font: 700 12px/1 system-ui, sans-serif; border: 2px solid #fff; box-shadow: 0 1px 3px rgb(0 0 0 / 0.35); }
+.stop-icon.travel { background: #0b3d6e; }
+label.map-check .stop-icon { width: 16px; height: 16px; font-size: 10px; border-width: 1px; box-shadow: none; }
+.map-check { display: flex; align-items: center; gap: 6px; background: var(--surface-2); border: 1px solid var(--axis); border-radius: 8px;
+  padding: 4px 8px; font-size: 12px; cursor: pointer; box-shadow: 0 1px 4px rgb(0 0 0 / 0.15); }
+
+/* "See all statistics" on the route card, and multi-select crash-kind legend */
+.link-btn { border: 0; background: none; padding: 4px 0; color: var(--accent); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.link-btn:hover { color: var(--ink); }
+.all-factors { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line, rgb(0 0 0 / 0.1)); }
+.all-factors h3 { margin: 0 0 4px; }
+.all-factors .table-wrap { overflow-x: auto; }
+.factor-table { font-size: 13px; }
+.factor-table th[scope="row"] { text-align: left; font-weight: 500; white-space: nowrap; }
+.factor-table td, .factor-table th { padding: 4px 8px; }
+.factor-table tr.sub th { text-align: left; padding-top: 10px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+.factor-table tr.stand th[scope="row"] { font-weight: 700; }
+.factor-table td.bars { width: 32%; min-width: 110px; }
+.factor-table .small { font-size: 12px; }
+.pair-bar { display: block; height: 6px; border-radius: 3px; min-width: 2px; }
+.pair-bar + .pair-bar { margin-top: 2px; }
+.pair-bar.you, .key.you { background: var(--accent); }
+.pair-bar.near, .key.near { background: color-mix(in srgb, var(--ink-2) 40%, transparent); }
+.key { display: inline-block; width: 12px; height: 6px; border-radius: 3px; vertical-align: middle; }
+.kind-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: baseline; }
+.type-legend button.show-all { justify-content: center; margin-top: 3px; color: var(--accent); font-weight: 600; border: 1px solid currentColor; }

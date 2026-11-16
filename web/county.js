@@ -7,7 +7,8 @@ const HIGHLIGHT = { light: "#eb6834", dark: "#ff8a5c" }; // categorical slot 2, 
 
 const detail = {
   fips: null, name: null, data: null, road: null, request: 0,
-  map: null, tiles: null, outline: null, points: null, shapes: null,
+  map: null, tiles: null, outline: null, points: null, shapes: null, view: { heat: false, groups: new Set() },
+  spot: null, // selected dangerous spot: { members: Set of crash rows, lat, lon }
 };
 
 function cssVar(name) {
@@ -36,19 +37,117 @@ function createStreetMap(el, onThemeChange) {
   return map;
 }
 
-// Crash dot: blue, sized by deaths, with a surface-colored ring.
+// "Dots | Heat map" switch plus a legend shown in heat mode, for both street maps.
+// view.heat says which mode is on; redraw() repaints the map's crashes.
+const HEAT_GRADIENT = { 0.25: "#4c6ef5", 0.5: "#7c4ddb", 0.7: "#d6336c", 0.85: "#f08c00", 1: "#ffd43b" };
+
+function addHeatToggle(map, view, redraw) {
+  const Toggle = L.Control.extend({
+    onAdd() {
+      const box = L.DomUtil.create("div", "map-toggle");
+      box.innerHTML = `<button type="button" data-mode="dots" class="on">Dots</button>` +
+        `<button type="button" data-mode="heat" title="Shows where fatal crashes cluster: brighter areas had more">Heat map</button>`;
+      L.DomEvent.disableClickPropagation(box);
+      box.addEventListener("click", e => {
+        const mode = e.target.dataset.mode;
+        if (!mode) return;
+        view.heat = mode === "heat";
+        box.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.mode === mode));
+        legend.getContainer().hidden = !view.heat;
+        view.typeLegend.hidden = view.heat;
+        redraw();
+      });
+      return box;
+    },
+  });
+  const Legend = L.Control.extend({
+    onAdd() {
+      const box = L.DomUtil.create("div", "heat-legend");
+      const stops = Object.entries(HEAT_GRADIENT).map(([k, c]) => `${c} ${k * 100}%`).join(", ");
+      box.innerHTML = `<span>Fewer</span><i style="background:linear-gradient(90deg, #dbe4ff 0%, ${stops})"></i><span>More fatal crashes</span>`;
+      box.hidden = true;
+      return box;
+    },
+  });
+  const Types = L.Control.extend({
+    onAdd() {
+      const box = L.DomUtil.create("div", "type-legend");
+      L.DomEvent.disableClickPropagation(box);
+      L.DomEvent.disableScrollPropagation(box);
+      return box;
+    },
+  });
+  new Toggle({ position: "topright" }).addTo(map);
+  const legend = new Legend({ position: "bottomleft" }).addTo(map);
+  view.typeLegend = new Types({ position: "bottomleft" }).addTo(map).getContainer();
+}
+
+// Heat layer for a list of crash rows; each crash counts once, weighted a little by deaths. The
+// ceiling grows with the number of crashes so a busy county isn't one solid blob of the hottest color.
+function heatLayer(rows) {
+  return L.heatLayer(rows.map(c => [c[0], c[1], 0.6 + 0.4 * Math.min(c[5], 3)]),
+    { radius: 16, blur: 18, maxZoom: 9, max: Math.max(2, rows.length / 60), minOpacity: 0.3, gradient: HEAT_GRADIENT });
+}
+
+// Crash types grouped into seven kinds a driver recognizes, colored with the color-blind-safe
+// Okabe-Ito palette (minus yellow, which washes out on the light map). Codes are crash_type values.
+const CRASH_GROUPS = [
+  { key: "headon", label: "Head-on or oncoming", color: "#D55E00", codes: [1, 10] },
+  { key: "rear", label: "Rear-end", color: "#E69F00", codes: [2] },
+  { key: "angle", label: "Angle (often at intersections)", color: "#CC79A7", codes: [3] },
+  { key: "lane", label: "Lane change or merge", color: "#56B4E9", codes: [4] },
+  { key: "ped", label: "Pedestrian or cyclist", color: "#009E73", codes: [6, 7] },
+  { key: "single", label: "Single vehicle (ran off road, rollover)", color: "#0072B2", codes: [8, 9] },
+  { key: "other", label: "Other or unknown", color: "#999999", codes: [0, 5] },
+];
+const GROUP_OF_CODE = new Map(CRASH_GROUPS.flatMap(g => g.codes.map(code => [code, g])));
+const crashGroup = c => GROUP_OF_CODE.get(catValue(c[7], "crash_type")) ?? CRASH_GROUPS.at(-1);
+
+// Crash dot: colored by kind of crash, sized by deaths, with a light ring.
 function crashMarker(c, opts = {}) {
   return L.circleMarker([c[0], c[1]], {
     radius: 3 + 2 * Math.sqrt(c[5]),
-    color: cssVar("--surface"), weight: 1,
-    fillColor: cssVar("--series-1"), fillOpacity: 0.8,
+    color: "#ffffff", weight: 1,
+    fillColor: crashGroup(c).color, fillOpacity: 0.85,
     ...opts,
   });
+}
+
+// Style for a dot given what's spotlighted: picked crashes get a dark outline, others fade.
+function dotStyle(spotlit, picked) {
+  if (!spotlit) return { fillOpacity: 0.12, opacity: 0.25 };
+  return picked ? { color: cssVar("--ink"), weight: 2, fillOpacity: 0.95 } : {};
+}
+
+// Legend of crash kinds shown on the map. Lists only kinds present, with counts. Clicking kinds
+// spotlights them; several can be on at once, and "Show all" clears them.
+const kindOn = (view, c) => !view.groups.size || view.groups.has(crashGroup(c).key);
+
+function updateTypeLegend(view, rows, redraw) {
+  const box = view.typeLegend;
+  if (!box) return;
+  const counts = d3.rollup(rows, v => v.length, c => crashGroup(c).key);
+  const items = CRASH_GROUPS.filter(g => counts.get(g.key));
+  for (const key of view.groups) if (!counts.get(key)) view.groups.delete(key);
+  const any = view.groups.size > 0;
+  box.innerHTML = `<b>Kind of crash</b>` + items.map(g =>
+    `<button type="button" data-key="${g.key}" aria-pressed="${view.groups.has(g.key)}" class="${view.groups.has(g.key) ? "on" : any ? "dim" : ""}">` +
+    `<i style="background:${g.color}"></i>${g.label}<span>${fmtInt(counts.get(g.key))}</span></button>`).join("") +
+    (any ? `<button type="button" data-key="all" class="show-all">Show all kinds</button>`
+         : `<small>Click kinds to spotlight them (pick as many as you like)</small>`);
+  box.onclick = e => {
+    const key = e.target.closest("button")?.dataset.key;
+    if (!key) return;
+    if (key === "all") view.groups.clear();
+    else if (!view.groups.delete(key)) view.groups.add(key);
+    redraw();
+  };
 }
 
 function initRoadMap() {
   detail.map = createStreetMap("roadmap", drawPoints);
   detail.points = L.layerGroup().addTo(detail.map);
+  addHeatToggle(detail.map, detail.view, drawPoints);
 }
 
 // Geolocated crashes for one county, fetched once and shared by the road, route and compare views.
@@ -82,7 +181,7 @@ async function showCountyDetail(fips, name, scroll = true) {
   if (fips === detail.fips) return;
 
   const request = ++detail.request;
-  Object.assign(detail, { fips, name, data: null, road: null });
+  Object.assign(detail, { fips, name, data: null, road: null, spot: null });
   $("d-title").textContent = name;
   $("d-sub").textContent = "Loading crashes…";
   detail.points.clearLayers();
@@ -139,6 +238,7 @@ function refreshCountyDetail() {
       (filterActive() ? `. Filtered: ${filterSummary()}` : "");
 
   drawRoadTable(crashes);
+  drawSpotTable(crashes);
   drawPoints();
 }
 
@@ -148,7 +248,7 @@ function drawRoadTable(crashes) {
     .map(([road, s]) => ({ road, name: detail.data.roads[road], ...s }))
     .sort((a, b) => byDeaths ? b.deaths - a.deaths || b.crashes - a.crashes : b.crashes - a.crashes || b.deaths - a.deaths)
     .slice(0, 15);
-  $("roads-title").textContent = byDeaths ? "Deadliest roads" : "Roads with the most fatal crashes";
+  $("tab-roads").textContent = byDeaths ? "Deadliest roads" : "Roads with most crashes";
 
   d3.select("#roads tbody").selectAll("tr").data(roads, r => r.road).join("tr")
     .classed("active", r => r.road === detail.road)
@@ -159,17 +259,14 @@ function drawRoadTable(crashes) {
 function drawPoints() {
   if (!detail.data) return;
   detail.points.clearLayers();
-  const hl = darkQuery.matches ? HIGHLIGHT.dark : HIGHLIGHT.light;
   const crashes = filteredCrashes();
-  const on = c => detail.road === null || c[6] === detail.road;
-  // Draw the highlighted road last so it sits on top.
+  const picked = detail.spot ? c => detail.spot.members.has(c) : detail.road !== null ? c => c[6] === detail.road : null;
+  updateTypeLegend(detail.view, picked ? crashes.filter(picked) : crashes, drawPoints);
+  const on = c => (!picked || picked(c)) && kindOn(detail.view, c);
+  if (detail.view.heat) return heatLayer(crashes.filter(on)).addTo(detail.points);
+  // Draw the spotlighted crashes last so they sit on top.
   for (const c of [...crashes.filter(c => !on(c)), ...crashes.filter(on)]) {
-    const active = detail.road !== null && on(c);
-    crashMarker(c, {
-      ...(active && { fillColor: hl }),
-      fillOpacity: on(c) ? 0.8 : 0.15,
-      opacity: on(c) ? 1 : 0.3,
-    })
+    crashMarker(c, dotStyle(on(c), !!picked && on(c)))
       .bindTooltip(crashTip(c, detail.data.roads), { direction: "top", offset: [0, -4], className: "crash-tip" })
       .on("click", () => highlightRoad(c[6] === detail.road ? null : c[6], false))
       .addTo(detail.points);
@@ -187,6 +284,8 @@ function crashTip(c, roads, extra = "") {
 
 function highlightRoad(road, zoom) {
   detail.road = road;
+  detail.spot = null;
+  d3.selectAll("#spots tbody tr").classed("active", false);
   d3.selectAll("#roads tbody tr").classed("active", r => r.road === road);
   drawPoints();
   if (!zoom) return;
@@ -197,3 +296,80 @@ function highlightRoad(road, zoom) {
 
 $("d-back").addEventListener("click", () => reveal($("map"), true, "center"));
 $("d-clear").addEventListener("click", () => highlightRoad(null, true));
+for (const tab of ["roads", "spots"]) {
+  $(`tab-${tab}`).addEventListener("click", () => {
+    for (const t of ["roads", "spots"]) {
+      $(`tab-${t}`).classList.toggle("on", t === tab);
+      $(`tab-${t}`).setAttribute("aria-selected", String(t === tab));
+      $(`pane-${t}`).hidden = t !== tab;
+    }
+  });
+}
+
+// ---------- most dangerous spots ----------
+
+const SPOT_CELL = 0.0005; // degrees of latitude, about 55 m; a spot is a 3 x 3 block of cells (~165 m)
+
+// Places where several crashes happened close together, ranked by deaths. Greedy: take the busiest
+// block, claim its cells, repeat, so neighbouring spots don't double-count the same crashes.
+function dangerousSpots(crashes, limit = 15) {
+  if (!crashes.length) return [];
+  const k = Math.cos(d3.mean(crashes, c => c[0]) * Math.PI / 180);
+  const cellOf = c => [Math.floor(c[0] / SPOT_CELL), Math.floor(c[1] * k / SPOT_CELL)];
+  const cells = new Map();
+  for (const c of crashes) {
+    const [i, j] = cellOf(c), key = `${i},${j}`;
+    if (!cells.has(key)) cells.set(key, { i, j, rows: [] });
+    cells.get(key).rows.push(c);
+  }
+  const block = ({ i, j }) => {
+    const rows = [], keys = [];
+    for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) {
+      const cell = cells.get(`${i + di},${j + dj}`);
+      if (cell && !cell.used) { rows.push(...cell.rows); keys.push(`${i + di},${j + dj}`); }
+    }
+    return { rows, keys };
+  };
+  const spots = [];
+  const order = [...cells.values()].map(cell => ({ cell, ...block(cell) }))
+    .sort((a, b) => d3.sum(b.rows, c => c[5]) - d3.sum(a.rows, c => c[5]) || b.rows.length - a.rows.length);
+  for (const { cell } of order) {
+    if (cell.used) continue;
+    const { rows, keys } = block(cell);
+    if (rows.length < 2) continue;
+    keys.forEach(key => { cells.get(key).used = true; });
+    spots.push({ rows, members: new Set(rows), deaths: d3.sum(rows, c => c[5]),
+                 lat: d3.mean(rows, c => c[0]), lon: d3.mean(rows, c => c[1]) });
+  }
+  return spots.sort((a, b) => b.deaths - a.deaths || b.rows.length - a.rows.length).slice(0, limit);
+}
+
+// "I-45 & FM-1960" when the crashes are split across two roads, otherwise one road name.
+function spotName(spot) {
+  const roads = d3.rollups(spot.rows, v => v.length, c => detail.data.roads[c[6]])
+    .filter(([name]) => name && name !== "Unknown road").sort((a, b) => b[1] - a[1]);
+  if (!roads.length) return "Unnamed road";
+  // "GESSNER DR" and "GESSNER RD" are one road spelled two ways.
+  const base = name => name.replace(/\b(RD|DR|ST|AVE|BLVD|LN|HWY|PKWY|CT|PL|WAY|FWY)\b/g, "").trim();
+  const other = roads.find(([name]) => base(name) !== base(roads[0][0]));
+  return other ? `${roads[0][0]} & ${other[0]}` : roads[0][0];
+}
+
+function drawSpotTable(crashes) {
+  const spots = dangerousSpots(crashes);
+  $("spots-empty").hidden = spots.length > 0;
+  d3.select("#spots tbody").selectAll("tr").data(spots).join("tr")
+    .classed("active", s => detail.spot && s.lat === detail.spot.lat && s.lon === detail.spot.lon)
+    .on("click", (e, s) => selectSpot(detail.spot && s.lat === detail.spot.lat ? null : s))
+    .html((s, i) => `<td>${i + 1}</td><td>${spotName(s)}</td><td class="num">${fmtInt(s.rows.length)}</td><td class="num">${fmtInt(s.deaths)}</td>`);
+}
+
+function selectSpot(spot) {
+  detail.spot = spot;
+  detail.road = null;
+  d3.selectAll("#roads tbody tr").classed("active", false);
+  d3.selectAll("#spots tbody tr").classed("active", s => spot && s.lat === spot.lat && s.lon === spot.lon);
+  drawPoints();
+  if (spot) detail.map.setView([spot.lat, spot.lon], 16);
+  else fitCounty();
+}

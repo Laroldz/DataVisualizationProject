@@ -15,14 +15,23 @@ CATEGORIES = {  # name -> labels for codes 1..n
     "weather": ["Clear / cloudy", "Rain", "Snow, sleet or ice", "Fog, smoke or other"],
     "light": ["Daylight", "Dawn or dusk", "Dark, lighted", "Dark, not lighted"],
     "surface": ["Dry", "Wet", "Snow, ice or slush", "Other (sand, oil, mud)"],
-    "crash_type": ["Head-on", "Rear-end", "Angle", "Sideswipe", "Other vehicle collision",
-                   "Pedestrian struck", "Bicyclist struck", "Rollover", "Fixed object or other"],
+    # Code 10 was added after 1-9, so existing codes keep their meaning.
+    "crash_type": ["Head-on", "Rear-end", "Angle", "Sideswipe, same direction (lane change or merge)",
+                   "Other vehicle collision", "Pedestrian struck", "Bicyclist struck", "Rollover",
+                   "Fixed object or other", "Sideswipe, opposite direction"],
     "road_type": ["Interstate or freeway", "Arterial", "Collector", "Local road"],
     "area": ["Rural", "Urban"],
 }
 CAT_BITS = 4
 FLAGS = ["alcohol", "speeding", "pedestrian", "bicyclist", "motorcycle", "large_truck",
-         "hit_run", "work_zone", "young_driver", "older_driver"]
+         "hit_run", "work_zone", "young_driver", "older_driver", "distracted", "drowsy"]
+# Driver distraction (DISTRACT table, 2010+): phone, passengers, controls, eating, outside events,
+# inattention, daydreaming... 0 = not distracted; 16/96/99 (no driver, not reported, unknown) are
+# unknown. Code 1 ("looked but did not see") is left out as ambiguous.
+DISTRACTED = set(range(3, 16)) | {17, 18, 19, 92, 93, 97, 98}
+# Drowsy driver (DRIMPAIR table, 2010+): code 2 "asleep or fatigued". 95/98/99 (no driver,
+# not reported, unknown) are unknown; any other code means impairment was recorded.
+IMPAIR_UNKNOWN = {95, 98, 99}
 
 
 def _map(series, table, default=0):
@@ -53,12 +62,13 @@ def surface(a, v, year):
 
 def crash_type(a, year):
     harm, man = a["HARM_EV"], a["MAN_COLL"]
+    # Sideswipes: same direction (lane changes, merges) -> 4, opposite direction -> 10.
     if year < 2002:
-        coll = {1: 2, 2: 1, 4: 3, 5: 4, 6: 4}
+        coll = {1: 2, 2: 1, 4: 3, 5: 4, 6: 10}
     elif year < 2010:
-        coll = {1: 2, 2: 1, 3: 3, 4: 3, 5: 3, 6: 3, 7: 4, 8: 4}
+        coll = {1: 2, 2: 1, 3: 3, 4: 3, 5: 3, 6: 3, 7: 4, 8: 10}
     else:
-        coll = {1: 2, 2: 1, 6: 3, 7: 4, 8: 4}
+        coll = {1: 2, 2: 1, 6: 3, 7: 4, 8: 10}
     out = pd.Series(9, index=a.index)          # fixed object / other
     out[harm == 1] = 8                          # rollover
     out[harm == 8] = 6                          # pedestrian
@@ -95,7 +105,7 @@ def any_by_case(a, df, mask):
     return a["ST_CASE"].isin(hit)
 
 
-def flags(a, v, p, year):
+def flags(a, v, p, year, d=None, imp=None):
     yes = {}
     # Alcohol: police-reported drinking driver. DRUNK_DR (crash level) is derived from the
     # vehicle-level DR_DRINK and matches it exactly from 1982-2020; it was dropped after 2020.
@@ -130,16 +140,32 @@ def flags(a, v, p, year):
     drivers = p[(p.PER_TYP == 1) & (p.AGE < unknown_age)]
     yes["young_driver"] = any_by_case(a, drivers, drivers.AGE.between(15, 20))
     yes["older_driver"] = any_by_case(a, drivers, drivers.AGE >= 65)
+    if d is None or d.empty:
+        yes["distracted"] = None
+    else:
+        code = d["DRDISTRACT"] if "DRDISTRACT" in d else d["MDRDSTRD"]
+        # (applies, recorded): a crash is unknown only if no driver's distraction was recorded.
+        yes["distracted"] = (any_by_case(a, d, code.isin(DISTRACTED)),
+                             any_by_case(a, d, code.isin(DISTRACTED | {0})))
+    if imp is None or imp.empty:
+        yes["drowsy"] = None
+    else:
+        yes["drowsy"] = (any_by_case(a, imp, imp.DRIMPAIR == 2), any_by_case(a, imp, ~imp.DRIMPAIR.isin(IMPAIR_UNKNOWN)))
 
     packed = np.zeros(len(a), dtype=np.int64)
     for i, name in enumerate(FLAGS):
         if yes[name] is None:
             continue
-        packed |= np.where(np.asarray(yes[name]), 2, 1).astype(np.int64) << (2 * i)
+        if isinstance(yes[name], tuple):
+            hit, known = (np.asarray(x) for x in yes[name])
+            val = np.where(hit, 2, np.where(known, 1, 0))
+        else:
+            val = np.where(np.asarray(yes[name]), 2, 1)
+        packed |= val.astype(np.int64) << (2 * i)
     return packed
 
 
-def encode(a, v, p, year):
+def encode(a, v, p, year, d=None, imp=None):
     """Return (cats, flags) arrays aligned with accident rows `a`."""
     fields = {
         "weather": weather(a, year), "light": light(a, year), "surface": surface(a, v, year),
@@ -148,4 +174,4 @@ def encode(a, v, p, year):
     cats = np.zeros(len(a), dtype=np.int64)
     for i, name in enumerate(CATEGORIES):
         cats |= np.asarray(fields[name], dtype=np.int64) << (CAT_BITS * i)
-    return cats, flags(a, v, p, year)
+    return cats, flags(a, v, p, year, d, imp)

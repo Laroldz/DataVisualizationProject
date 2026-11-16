@@ -5,12 +5,13 @@ const RAMP_LIGHT = d3.quantize(d3.interpolatePlasma, 9).slice(1, 8).reverse();
 const RAMP_DARK = RAMP_LIGHT; // the page has a single light theme
 
 const fmtInt = d3.format(",");
+const MIN_RANK_POP = 10000; // counties smaller than this are left out of the Top 10 rate lists
 const fmtRate = d3.format(",.1f");
 const NORM_LABEL = {
-  smoothed: "Smoothed rate per 100k / yr", rate: "Rate per 100k / yr", count: "Total",
-  share: "Share matching the filters (smoothed %)",
+  smoothed: "per 100,000 residents per year, adjusted for small counties", rate: "per 100,000 residents per year",
+  count: "total", share: "share matching the filters (%)",
 };
-const MEASURE_LABEL = { fatals: "fatalities", crashes: "fatal crashes" };
+const MEASURE_LABEL = { fatals: "deaths", crashes: "fatal crashes" };
 
 const $ = id => document.getElementById(id);
 const ui = { level: $("level"), measure: $("measure"), norm: $("norm"), y0: $("y0"), y1: $("y1") };
@@ -204,11 +205,11 @@ function render() {
   const area = level === "county" ? "counties" : "states";
   const toward = level === "county" ? "their state's" : "the national";
   $("note").textContent = (filterActive() ? `Showing only crashes matching: ${filterSummary()}. ` : "") + ({
-    smoothed: `Smoothed rates use empirical Bayes: low-population ${area} are pulled toward ${toward} rate, so a single crash can't produce an extreme value.`,
-    rate: "Unsmoothed rates: very small counties can show extreme values from just one or two crashes.",
-    count: "Raw counts mostly track population. Switch to a rate to compare areas fairly.",
-    share: `Percent of all ${ui.measure.value === "fatals" ? "deaths" : "fatal crashes"} that match the filters, smoothed so ${area} with few crashes are pulled toward ${toward} share.`,
-  })[norm] + " Colors are quantile bins (each holds ~1/7 of areas).";
+    smoothed: `Darker means more deaths for the number of people who live there. Small ${area} are nudged toward ${toward} rate so one or two crashes can't make them look extreme.`,
+    rate: "Darker means more deaths for the number of people who live there. Very small counties can look extreme from just one or two crashes.",
+    count: "Totals mostly follow population: big cities stand out. Switch Show to “per 100,000 residents” to compare places fairly.",
+    share: `The percentage of all ${ui.measure.value === "fatals" ? "deaths" : "fatal crashes"} in each area that match the filters.`,
+  })[norm];
 }
 
 // ---------- the U.S. at a glance ----------
@@ -235,7 +236,7 @@ function drawGlance(mapLevel) {
   const kpis = [
     [`${matching}deaths`, fmtInt(sum(nat.fatals, i0, i1)), years],
     [`${matching}fatal crashes`, fmtInt(sum(nat.crashes, i0, i1)), years],
-    [`${matching}${noun} per 100k / yr`, P ? fmtRate(E / P * 1e5) : "–", `${d3.format(".3~s")(P / nYears)} residents`],
+    [`${matching}${noun} per 100,000 residents / yr`, P ? fmtRate(E / P * 1e5) : "–", `${d3.format(".3~s")(P / nYears)} residents`],
     [`${matching}${noun} per day`, d3.format(",.0f")(E / days), "on average"],
     [`Change vs ${prevYears || "previous years"}`,
       change == null ? "–" : `${change > 0 ? "▲" : change < 0 ? "▼" : ""} ${d3.format("+.1f")(change)}%`,
@@ -251,10 +252,12 @@ function drawGlance(mapLevel) {
 
 function drawRank(level, vals) {
   const norm = ui.norm.value, fmt = norm === "count" ? fmtInt : fmtRate;
-  const rows = [...vals.values()].sort((a, b) => b.value - a.value).slice(0, 10);
+  const nYears = +ui.y1.value - +ui.y0.value + 1;
+  // Tiny counties (e.g. Loving County, TX, ~50 residents) would top every rate list on a few crashes.
+  const big = u => level === "state" || norm === "count" || u.P / nYears >= MIN_RANK_POP;
+  const rows = [...vals.values()].filter(big).sort((a, b) => b.value - a.value).slice(0, 10);
   const table = d3.select(`#rank-${level}`);
   table.select(".rank-col").text({ count: "Total", share: "Share %" }[norm] ?? "Per 100k");
-  const nYears = +ui.y1.value - +ui.y0.value + 1;
   table.select("tbody").selectAll("tr").data(rows).join("tr")
     .on("click", (e, u) => goToPlace({ level, id: u.id }))
     .html((u, i) => `<td>${i + 1}</td><td>${nameOf(level, u.id)}</td><td class="num">${fmt(u.value)}</td><td class="num">${d3.format(".3~s")(u.P / nYears)}</td>`);
@@ -271,11 +274,13 @@ function drawLegend(color, norm) {
   const lo = color.domain().length ? d3.min(color.domain()) : 0;
   const cuts = [lo, ...color.quantiles()];
   const legend = d3.select("#legend").html("");
-  legend.append("span").attr("class", "title").text(`${NORM_LABEL[norm]} (${MEASURE_LABEL[ui.measure.value]})`);
+  const what = MEASURE_LABEL[ui.measure.value];
+  legend.append("span").attr("class", "title").text(`${what[0].toUpperCase() + what.slice(1)} ${NORM_LABEL[norm]}`);
   color.range().forEach((c, i) => {
     const bin = legend.append("div").attr("class", "bin");
     bin.append("div").attr("class", "sw").style("background", c);
-    bin.append("span").text(i === 0 ? "" : `${fmt(cuts[i])}+`);
+    // Label every box (the first with the lowest value) so all columns are the same height.
+    bin.append("span").text(`${fmt(cuts[i])}+`);
   });
   legend.append("span").attr("class", "nd").html("<i></i>No data");
 }
@@ -304,14 +309,15 @@ function drawPanel() {
   const stats = [
     [`${filterActive() ? "Matching" : "Total"} ${MEASURE_LABEL[measure]}, ${ui.y0.value}–${ui.y1.value}`, fmtInt(E)],
     filterActive() ? ["Share of all", total ? `${fmtRate(E / total * 100)}%` : "–"] : ["Avg. population", d3.format(",.0f")(P / nYears)],
-    ["Rate per 100k / yr", P ? fmtRate(E / P * 1e5) : "–"],
-    s ? [share ? "Smoothed share" : "Smoothed rate", u?.smoothed != null ? fmtRate(u.smoothed) + (share ? "%" : "") : "–"] : null,
-    s ? (share ? ["U.S. share", `${fmtRate(natShare)}%`] : ["U.S. rate", fmtRate(natRate)]) : null,
+    ["Per 100,000 residents / yr", P ? fmtRate(E / P * 1e5) : "–"],
+    s ? [share ? "Adjusted share" : "Adjusted for small size", u?.smoothed != null ? fmtRate(u.smoothed) + (share ? "%" : "") : "–"] : null,
+    s ? (share ? ["U.S. share", `${fmtRate(natShare)}%`] : ["U.S. average", fmtRate(natRate)]) : null,
   ].filter(Boolean);
+  const few = s && E < 10 ? `<p class="panel-hint warn-few">Only ${fmtInt(E)} ${MEASURE_LABEL[measure]} here in these years, so these numbers can swing a lot from year to year.</p>` : "";
   // National numbers live in the "at a glance" section; here they'd only repeat it.
   $("sel-stats").innerHTML = s
-    ? stats.map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join("")
-    : `<p class="panel-hint">Click a state or county to see its numbers. National totals are in section 1.</p>`;
+    ? stats.map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join("") + few
+    : `<p class="panel-hint">Click a state or county to see its numbers. National totals are in section 2.</p>`;
   drawTrend(s ? [ser, all] : null, measure, share);
 }
 
@@ -356,7 +362,7 @@ function drawTrend(selected, measure, share) {
     trend.append("text").attr("class", "label sel").attr("x", T.w - T.m.r + 4).attr("y", ySel).attr("dy", "0.35em").text("Selected");
   }
   trend.append("text").attr("x", T.m.l).attr("y", T.m.t - 2)
-    .text(share ? `% of ${MEASURE_LABEL[measure]} matching the filters` : `${filterActive() ? "matching " : ""}${MEASURE_LABEL[measure]} per 100k / yr`);
+    .text(share ? `% of ${MEASURE_LABEL[measure]} matching the filters` : `${filterActive() ? "matching " : ""}${MEASURE_LABEL[measure]} per 100,000 residents / yr`);
 
   // Crosshair + tooltip
   const cross = trend.append("line").attr("class", "cross").attr("y1", T.m.t).attr("y2", T.h - T.m.b).style("display", "none");
@@ -456,7 +462,7 @@ function goToPlace({ level, id }, scrollTo = $("g-map")) {
   state.focusState = level === "state" ? id : Math.floor(id / 1000);
   select(level, id, false);
   zoomTo(feature);
-  reveal(scrollTo);
+  if (scrollTo) reveal(scrollTo);
 }
 
 // ---------- collapsible sections ----------
@@ -526,8 +532,8 @@ function showTip(e, level, id) {
     [`${filterActive() ? "Matching " : ""}${MEASURE_LABEL[ui.measure.value]} (${ui.y0.value}–${ui.y1.value})`, fmtInt(u.E)],
     filterActive() ? ["Share of all", u.share != null ? `${fmtRate(u.share)}%` : "–"] : null,
     ["Avg. population", d3.format(",.0f")(u.P / nYears)],
-    ["Rate per 100k / yr", fmtRate(u.rate)],
-    [share ? "Smoothed share" : "Smoothed rate", fmtRate(u.smoothed) + (share ? "%" : "")],
+    ["Per 100,000 residents / yr", fmtRate(u.rate)],
+    [share ? "Adjusted share" : "Adjusted for small size", fmtRate(u.smoothed) + (share ? "%" : "")],
   ].filter(Boolean) : [["No data", ""]];
   tipAt(e, `<b>${nameOf(level, id)}</b>` + rows.map(([k, v]) => `<div class="row"><span>${k}</span>${v}</div>`).join(""));
 }
@@ -569,6 +575,7 @@ Promise.all([
   initCompare();
   initPolicy();
   initPatterns();
+  initShare();
 
   ui.level.addEventListener("change", () => { state.focusState = null; render(); });
   for (const el of [ui.measure, ui.norm]) el.addEventListener("change", render);
