@@ -17,7 +17,8 @@ The page uses one soft light theme and is split into six color-coded groups, lin
 ```
 python download.py            # raw FARS files -> FARS_Data/ (~6 GB, gitignored)
 python prep/build_data.py     # -> web/data/county_year.csv, state_year.csv, crashes/{fips}.json
-python prep/rest_stops.py     # -> web/data/rest_stops.json (U.S. rest areas and travel centers from OpenStreetMap; ~30-40 min)
+python prep/rest_stops.py     # -> web/data/rest_stops.json (U.S. rest areas and travel centers from OpenStreetMap; slow, resumes if stopped)
+python prep/rest_stops.py --cached   # write the file from the tiles downloaded so far
 ```
 
 ## County road view

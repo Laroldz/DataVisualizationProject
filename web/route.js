@@ -599,7 +599,7 @@ function loadStops(r) {
       if (lat < s || lat > n || lon < w || lon > e) continue;
       const near = nearestAlong(lon, lat, segs);
       if (near.dist > STOP_RANGE) continue;
-      found.push({ lat, lon, mile: near.along / M_PER_MILE, off: near.dist / M_PER_MILE, kind: data.kinds[kind], name: name || data.kinds[kind],
+      found.push({ lat, lon, mile: near.along / M_PER_MILE, off: near.dist / M_PER_MILE, kind: data.kinds[kind], name: name || data.kinds[kind], named: !!name,
                    toilets: !!toilets, n: 1 });
     }
     // The two sides of a highway rest area are often mapped separately; merge stops of the same kind close together.
@@ -633,8 +633,13 @@ function stopsList(r) {
   if (!r.stops) return `<p class="muted">Looking up rest stops…</p>`;
   if (!r.stops.length) return `<p class="muted">No rest areas or travel centers within 5 km of this route on OpenStreetMap.</p>`;
   const shown = r.stops.slice(0, 6);
-  return `<ul>${shown.map(s => `<li><b>Mile ${fmtRate(s.mile)}:</b> ${s.name} <span class="muted">(${s.kind.toLowerCase()}` +
-    `${s.n > 1 ? ", both sides" : ""}${s.toilets ? ", restrooms" : ""}${s.off >= 0.3 ? `, ${fmtRate(s.off)} mi off route` : ""})</span></li>`).join("")}</ul>` +
+  const item = s => {
+    const notes = [s.named ? s.kind.toLowerCase() : "", s.n > 1 ? "both sides" : "", s.toilets ? "restrooms" : "",
+                   s.off >= 0.3 ? `${fmtRate(s.off)} mi off route` : ""].filter(Boolean);
+    return `<li><b>Mile ${fmtRate(s.mile)}:</b> ${s.named ? s.name : `Unnamed ${s.kind.toLowerCase()}`}` +
+      (notes.length ? ` <span class="muted">(${notes.join(", ")})</span>` : "") + "</li>";
+  };
+  return `<ul>${shown.map(item).join("")}</ul>` +
     (r.stops.length > shown.length ? `<p class="muted">${r.stops.length - shown.length} more on the map.</p>` : "");
 }
 

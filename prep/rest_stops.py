@@ -10,8 +10,12 @@ Data (c) OpenStreetMap contributors, ODbL.
 
 Each finished tile is cached in prep/raw/rest_stops_tiles/, so an interrupted run picks up where it stopped.
 Delete that folder to download fresh data.
+
+    python prep/rest_stops.py            # download every tile (resumes from the cache)
+    python prep/rest_stops.py --cached   # write the file now from the tiles already downloaded
 """
 import json
+import sys
 import time
 import urllib.parse
 import urllib.request
@@ -45,7 +49,7 @@ def tiles():
 
 def fetch(box):
     b = ",".join(f"{v:.3f}" for v in box)
-    cached = CACHE / (b.replace(",", "_") + ".json")
+    cached = cache_file(box)
     if cached.exists():
         return json.loads(cached.read_text(encoding="utf-8"))
     query = f'[out:json][timeout:120];(nwr["highway"="rest_area"]({b});nwr["highway"="services"]({b}););out center tags;'
@@ -80,16 +84,29 @@ def add(found, stops, seen):
         stops.append([round(lat, 5), round(lon, 5), KINDS[tags["highway"]], name, 1 if tags.get("toilets") == "yes" else 0])
 
 
+def cache_file(box):
+    return CACHE / ("_".join(f"{v:.3f}" for v in box) + ".json")
+
+
 def main():
     CACHE.mkdir(parents=True, exist_ok=True)
     stops, seen = [], set()
     all_tiles = list(tiles())
-    with ThreadPoolExecutor(WORKERS) as pool:
-        for i, found in enumerate(pool.map(fetch, all_tiles), 1):
-            add(found, stops, seen)
-            print(f"{i}/{len(all_tiles)} tiles, {len(stops):,} stops", flush=True)
+    if "--cached" in sys.argv:  # no downloading: use only the tiles finished so far
+        missing = [box for box in all_tiles if not cache_file(box).exists()]
+        for box in all_tiles:
+            if box not in missing:
+                add(json.loads(cache_file(box).read_text(encoding="utf-8")), stops, seen)
+        print(f"{len(all_tiles) - len(missing)}/{len(all_tiles)} tiles cached; {len(missing)} not downloaded yet")
+    else:
+        missing = []
+        with ThreadPoolExecutor(WORKERS) as pool:
+            for i, found in enumerate(pool.map(fetch, all_tiles), 1):
+                add(found, stops, seen)
+                print(f"{i}/{len(all_tiles)} tiles, {len(stops):,} stops", flush=True)
     OUT.write_text(json.dumps({"fields": ["lat", "lon", "kind", "name", "toilets"], "kinds": ["Rest area", "Travel center"],
-                               "source": "OpenStreetMap contributors (ODbL), via the Overpass API", "stops": stops},
+                               "source": "OpenStreetMap contributors (ODbL), via the Overpass API",
+                               "missing_tiles": [list(box) for box in missing], "stops": stops},
                               separators=(",", ":"), ensure_ascii=False), encoding="utf-8")
     print(f"Wrote {len(stops):,} stops to {OUT.relative_to(ROOT)} ({OUT.stat().st_size / 1e6:.2f} MB)")
 
