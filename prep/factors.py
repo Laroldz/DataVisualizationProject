@@ -3,7 +3,7 @@
 FARS renamed and recoded many variables over the years (e.g. WEATHER was renumbered in
 2010, speeding moved from driver-factor codes to SPEEDREL in 2009, body types were
 recoded in 1982 and 1991). Each function below maps one era's codes onto one shared set
-of categories. web/filters.js decodes the same layout, so keep the two in sync.
+of categories. docs/filters.js decodes the same layout, so keep the two in sync.
 
   cats (uint32): categorical fields, CAT_BITS wide each, in CATEGORIES order; 0 = unknown
   flags (uint32): 2 bits per flag in FLAGS order; 0 = not recorded that year, 1 = no, 2 = yes

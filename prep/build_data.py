@@ -1,6 +1,6 @@
-"""Aggregate FARS accident files + SEER county population into small CSVs for the web map.
+"""Aggregate FARS accident files + SEER county population into small CSVs for the map in docs/.
 
-Outputs (web/data/):
+Outputs (docs/data/):
   county_year.csv  year,fips,crashes,fatals,pop
   state_year.csv   year,state,crashes,fatals,pop
   crashes/{fips}.json  every geolocated crash in the county (2001+, when FARS has coordinates)
@@ -21,7 +21,7 @@ import factors
 ROOT = Path(__file__).resolve().parent.parent
 FARS = ROOT / "FARS_Data"
 RAW = ROOT / "prep" / "raw"
-OUT = ROOT / "web" / "data"
+OUT = ROOT / "docs" / "data"
 YEARS = range(1975, 2025)
 POINT_YEARS = range(2001, 2025)
 

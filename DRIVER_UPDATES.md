@@ -57,14 +57,14 @@ They appear in Check your drive, above the map's filters, and in the floating se
 | File | Change |
 |---|---|
 | `prep/factors.py` | Splits sideswipes into same-direction (lane change/merge) and opposite-direction |
-| `web/data/*` | Rebuilt with `python prep/build_data.py` |
-| `web/index.html` | New section order, how-to strip, route form with trip time, summary and trip cards, chips, plainer labels, heat-map library |
-| `web/route.js` | Trip-time analysis and chart, "Your drive" card, heat-map mode, highlighting |
-| `web/county.js` | Shared Dots/Heat map switch and legend, used by both street maps |
-| `web/filters.js` | "Focus on" chips |
-| `web/main.js` | Plainer labels and notes, Top 10 population floor, small-number warning |
-| `web/compare.js` | Plainer rate label |
-| `web/style.css` | Styles for the new pieces and the green "Check your drive" accent |
+| `docs/data/*` | Rebuilt with `python prep/build_data.py` |
+| `docs/index.html` | New section order, how-to strip, route form with trip time, summary and trip cards, chips, plainer labels, heat-map library |
+| `docs/route.js` | Trip-time analysis and chart, "Your drive" card, heat-map mode, highlighting |
+| `docs/county.js` | Shared Dots/Heat map switch and legend, used by both street maps |
+| `docs/filters.js` | "Focus on" chips |
+| `docs/main.js` | Plainer labels and notes, Top 10 population floor, small-number warning |
+| `docs/compare.js` | Plainer rate label |
+| `docs/style.css` | Styles for the new pieces and the green "Check your drive" accent |
 
 ## How it was checked
 
@@ -77,7 +77,7 @@ They appear in Check your drive, above the map's filters, and in the floating se
 
 ## Try it
 
-Run `python -m http.server -d web 8000` and open http://localhost:8000. Press **Check my drive**, pick "Weekdays, 4 PM–6 PM", then switch the map to **Heat map**.
+Run `python -m http.server -d docs 8000` and open http://localhost:8000. Press **Check my drive**, pick "Weekdays, 4 PM–6 PM", then switch the map to **Heat map**.
 
 ## Round 2: more for drivers
 
@@ -135,7 +135,7 @@ The colors come from the Okabe–Ito palette, which stays distinguishable for co
 - **What:** the route map has a **Rest stops** switch, on by default. It shows rest areas and travel centers (truck stops, travel plazas) within 5 km of the route as blue "P" signs, from OpenStreetMap.
 - **"Places to take a break":** the "Your drive" card lists them in route order with their mile, e.g. "Mile 64: Walker County Rest Area (both sides, restrooms)". Stops more than about a quarter mile from the route also show how far off the route they are ("1.8 mi off route").
 - **Both sides:** a highway rest area mapped separately for each direction is merged into one entry.
-- **How it's looked up:** a new prep script, `prep/rest_stops.py`, downloads every U.S. rest area and travel center from OpenStreetMap once, through the Overpass API, into `web/data/rest_stops.json`. The page loads that file the first time a route is checked and keeps the stops within 5 km of the route line, so it works offline from the public Overpass servers. In testing those servers often took 40+ seconds or timed out.
+- **How it's looked up:** a new prep script, `prep/rest_stops.py`, downloads every U.S. rest area and travel center from OpenStreetMap once, through the Overpass API, into `docs/data/rest_stops.json`. The page loads that file the first time a route is checked and keeps the stops within 5 km of the route line, so it works offline from the public Overpass servers. In testing those servers often took 40+ seconds or timed out.
 - **Coverage:** stops missing from OpenStreetMap won't appear. Re-run `python prep/rest_stops.py` to refresh the data.
 
 **15. Drowsy driving.**
@@ -155,18 +155,18 @@ The colors come from the Okabe–Ito palette, which stays distinguishable for co
 - **Highlights:** factors listed under "What stands out" are tagged in the table.
 - **Stays open:** the table updates with the years, filters and trip time. "Hide" closes it.
 
-Files for items 14–16: `prep/rest_stops.py` (new), `web/data/rest_stops.json` (new), `prep/factors.py` and `prep/build_data.py` (drowsy flag), `web/route.js` (rest-stop layer, "Places to take a break" list, drowsy factor, all-statistics table), `web/county.js` (multi-kind legend), `web/filters.js` and `web/compare.js` (drowsy filter, chip and factor), `web/style.css`.
+Files for items 14–16: `prep/rest_stops.py` (new), `docs/data/rest_stops.json` (new), `prep/factors.py` and `prep/build_data.py` (drowsy flag), `docs/route.js` (rest-stop layer, "Places to take a break" list, drowsy factor, all-statistics table), `docs/county.js` (multi-kind legend), `docs/filters.js` and `docs/compare.js` (drowsy filter, chip and factor), `docs/style.css`.
 
 ### Files changed in round 2
 
 | File | Change |
 |---|---|
 | `prep/factors.py`, `prep/build_data.py` | Distracted-driver flag from the DISTRACT table; factor coverage threshold lowered to 20% so partly reported distraction isn't treated as missing |
-| `web/data/*` | Rebuilt |
-| `web/county.js` | "Most dangerous spots" tab, crash-kind colors and legend, outline highlighting |
-| `web/route.js` | Alternative routes and the compare table, season of trip |
-| `web/share.js` (new) | Share links, saved drive, saved area |
-| `web/filters.js`, `web/compare.js` | Distracted-driving filter label, chip, Compare factor |
-| `web/index.html`, `web/style.css`, `web/main.js` | New controls, tabs, buttons and styles |
+| `docs/data/*` | Rebuilt |
+| `docs/county.js` | "Most dangerous spots" tab, crash-kind colors and legend, outline highlighting |
+| `docs/route.js` | Alternative routes and the compare table, season of trip |
+| `docs/share.js` (new) | Share links, saved drive, saved area |
+| `docs/filters.js`, `docs/compare.js` | Distracted-driving filter label, chip, Compare factor |
+| `docs/index.html`, `docs/style.css`, `docs/main.js` | New controls, tabs, buttons and styles |
 
 All new features were tested in a headless browser with no errors. The seven functional tests from the prototype report still give the same results.

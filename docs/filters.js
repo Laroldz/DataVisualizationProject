@@ -205,8 +205,12 @@ function updateFilterHeader(y0, y1) {
 
 async function loadCrashTable() {
   filters.tableLoading ??= (async () => {
-    const res = await fetch("data/crash_table.bin.gz");
-    const buf = await new Response(res.body.pipeThrough(new DecompressionStream("gzip"))).arrayBuffer();
+    const raw = await (await fetch("data/crash_table.bin.gz")).arrayBuffer();
+    // Some hosts send .gz files with Content-Encoding: gzip, so the browser has already unzipped them.
+    const head = new Uint8Array(raw, 0, 2), zipped = head[0] === 0x1f && head[1] === 0x8b;
+    const buf = zipped
+      ? await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream("gzip"))).arrayBuffer()
+      : raw;
     const n = filters.meta.rows, t = {};
     let offset = 0;
     for (const [name, type] of filters.meta.columns) {

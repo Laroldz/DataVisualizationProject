@@ -5,10 +5,12 @@ U.S. Traffic Fatality Explorer: an interactive D3 map of fatal crashes (NHTSA FA
 ## Run the map
 
 ```
-python -m http.server -d web 8000
+python -m http.server -d docs 8000
 ```
 
-Then open http://localhost:8000. The aggregated data in `web/data/` is committed, so the raw FARS files aren't needed to view the map.
+Then open http://localhost:8000. The aggregated data in `docs/data/` is committed, so the raw FARS files aren't needed to view the map.
+
+The site lives in `docs/` so it can be published with GitHub Pages: in the repository's **Settings → Pages**, choose **Deploy from a branch**, pick the branch and the `/docs` folder, and save. `docs/.nojekyll` tells Pages to serve the files as they are.
 
 The page uses one soft light theme and is split into six color-coded groups, linked from the sticky top bar: **1 Check your drive** (route explorer with trip time, a plain-language summary and a heat map), **2 The United States at a glance** (national totals, change vs the previous period, deadliest year, top 10 states and counties), **3 Explore the map** (level, filters, map), **4 Street level** (county road view), **5 When & weather** and **6 Compare & evaluate** (compare, before/after a law). A search box and a three-step guide sit above group 1. Count, Show, the year range and the filters live in a small settings bar that floats at the bottom of the screen and applies to every group. Click a group's header to collapse or expand it; the browser remembers which groups are collapsed, and jumping to a group (nav links, search, clicking a county) opens it. See [DRIVER_UPDATES.md](DRIVER_UPDATES.md) for the latest driver-focused changes.
 
@@ -16,8 +18,8 @@ The page uses one soft light theme and is split into six color-coded groups, lin
 
 ```
 python download.py            # raw FARS files -> FARS_Data/ (~6 GB, gitignored)
-python prep/build_data.py     # -> web/data/county_year.csv, state_year.csv, crashes/{fips}.json
-python prep/rest_stops.py     # -> web/data/rest_stops.json (U.S. rest areas and travel centers from OpenStreetMap; slow, resumes if stopped)
+python prep/build_data.py     # -> docs/data/county_year.csv, state_year.csv, crashes/{fips}.json
+python prep/rest_stops.py     # -> docs/data/rest_stops.json (U.S. rest areas and travel centers from OpenStreetMap; slow, resumes if stopped)
 python prep/rest_stops.py --cached   # write the file from the tiles downloaded so far
 ```
 
@@ -29,7 +31,7 @@ Click a county to open a street map of every fatal crash in it, with a ranked li
 
 ## Route explorer
 
-Enter a start and a destination to see every fatal crash (2001+) within 50, 100 or 200 m of the driving route. The view includes a plain-language "Your drive" summary (worst stretches, factors that stand out against the surrounding counties, the trend and driving tips), a "See all statistics" table comparing every factor and kind of crash with the surrounding counties, a "When do you usually drive?" comparison for a day, 2-hour window and season, rest areas and travel centers within 5 km of the route, a Dots/Heat map switch, dots colored by kind of crash (pick one or more kinds to spotlight), a chart of crashes by mile along the route and a list of the deadliest stretches. Addresses are geocoded with OpenStreetMap Nominatim and routes come from the public OSRM demo server. Both are free, rate-limited services meant for light use, so they're fine for demos but not for heavy traffic. Crash matching runs in the browser against the per-county files in `web/data/crashes/`.
+Enter a start and a destination to see every fatal crash (2001+) within 50, 100 or 200 m of the driving route. The view includes a plain-language "Your drive" summary (worst stretches, factors that stand out against the surrounding counties, the trend and driving tips), a "See all statistics" table comparing every factor and kind of crash with the surrounding counties, a "When do you usually drive?" comparison for a day, 2-hour window and season, rest areas and travel centers within 5 km of the route, a Dots/Heat map switch, dots colored by kind of crash (pick one or more kinds to spotlight), a chart of crashes by mile along the route and a list of the deadliest stretches. Addresses are geocoded with OpenStreetMap Nominatim and routes come from the public OSRM demo server. Both are free, rate-limited services meant for light use, so they're fine for demos but not for heavy traffic. Crash matching runs in the browser against the per-county files in `docs/data/crashes/`.
 
 ## Compare
 
@@ -58,7 +60,7 @@ The section calculates only while it's on screen.
 Pick a place (state, county, city or road) and either a state traffic-law change or your own event with an exact date. Custom events compare 12-month periods before and after the date, skipping the day itself, with population prorated by day. The page compares crashes in the N years before and after, alongside the same change in a comparison group (rest of the U.S. or rest of the state). The result is a simple difference-in-differences with a 95% interval from Poisson counts. Laws also show as markers on the side panel's trend chart; clicking one opens this view.
 
 ```
-python prep/policies.py       # -> web/data/policies.json (downloads the CSPP panel into prep/raw/)
+python prep/policies.py       # -> docs/data/policies.json (downloads the CSPP panel into prep/raw/)
 ```
 
 - **Source:** state law changes come from the [Correlates of State Policy Project](https://ippsr.msu.edu/public-policy/correlates-state-policy) v2.6 (IPPSR, Michigan State University): 0.08 BAC, first and primary seat-belt laws, universal motorcycle-helmet laws, rural-interstate speed limits, handheld-phone bans, graduated licensing and open-container laws. There are 305 changes, 1982–2015.
@@ -78,7 +80,7 @@ The "Filter crashes by factor" panel narrows every view (map, rankings, trend ch
 
 With a filter active, the map can also show **Share matching filters (%)**: the smoothed percentage of each area's fatal crashes that match the filters (e.g. where alcohol is most often involved).
 
-FARS changed how it records several of these over 1975–2024. `prep/factors.py` maps each era's codes onto one set of categories. For example, weather was renumbered in 2010, speeding moved from driver contributing-factor codes to `SPEEDREL` in 2009, the crash-level drinking-driver count was dropped after 2020, and vehicle body types were recoded in 1982 and 1991. A few factors aren't recorded in early years: road type before 1981, work zone before 1981, large trucks before 1982. The page warns when the selected years include such gaps. All factors are packed into two integers per crash in `web/data/crash_table.bin.gz` (about 1.87 million crashes), which the page loads the first time a filter is used.
+FARS changed how it records several of these over 1975–2024. `prep/factors.py` maps each era's codes onto one set of categories. For example, weather was renumbered in 2010, speeding moved from driver contributing-factor codes to `SPEEDREL` in 2009, the crash-level drinking-driver count was dropped after 2020, and vehicle body types were recoded in 1982 and 1991. A few factors aren't recorded in early years: road type before 1981, work zone before 1981, large trucks before 1982. The page warns when the selected years include such gaps. All factors are packed into two integers per crash in `docs/data/crash_table.bin.gz` (about 1.87 million crashes), which the page loads the first time a filter is used.
 
 ## Normalization
 

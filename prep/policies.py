@@ -11,7 +11,7 @@ therefore treated as taking effect in Y-1 or Y, and the before/after view skips 
 Where CSPP has a second variable for the same law, events that disagree by more than a year
 are dropped instead of guessed.
 
-Output: web/data/policies.json, a list of
+Output: docs/data/policies.json, a list of
   {state, year, category, label, detail, source}
 """
 import json
@@ -22,7 +22,7 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
 RAW = ROOT / "prep" / "raw"
-OUT = ROOT / "web" / "data" / "policies.json"
+OUT = ROOT / "docs" / "data" / "policies.json"
 URL = "https://ippsr.msu.edu/sites/default/files/cspp/correlates2-6.csv"
 CSPP = "Correlates of State Policy Project v2.6 (IPPSR, Michigan State Univ.)"
 

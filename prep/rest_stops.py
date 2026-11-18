@@ -3,7 +3,7 @@
 The route explorer filters these along a driving route in the browser, so the page never has to wait on
 the public Overpass servers, which are often slow or busy.
 
-Output: web/data/rest_stops.json
+Output: docs/data/rest_stops.json
   {"fields": ["lat", "lon", "kind", "name", "toilets"], "kinds": ["Rest area", "Travel center"], "stops": [[...], ...]}
   OpenStreetMap tags: highway=rest_area -> "Rest area", highway=services -> "Travel center" (truck stops, travel plazas).
 Data (c) OpenStreetMap contributors, ODbL.
@@ -23,7 +23,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT = ROOT / "web" / "data" / "rest_stops.json"
+OUT = ROOT / "docs" / "data" / "rest_stops.json"
 CACHE = ROOT / "prep" / "raw" / "rest_stops_tiles"
 SERVER = "https://overpass-api.de/api/interpreter"  # the public mirrors were down or timing out when this was written
 WORKERS = 2                                           # overpass-api.de allows a couple of queries at once per user
