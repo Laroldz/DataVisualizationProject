@@ -339,12 +339,13 @@ input[type="date"] { font: inherit; color: var(--ink); background: var(--surface
 .tooltip .row span { color: var(--ink-2); }
 
 /* ---------- driver-focused additions ---------- */
-.howto { list-style: none; padding: 0; margin: 0 0 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; max-width: 900px; }
+.howto { list-style: none; padding: 0; margin: 0 0 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
 .howto li { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
 .howto a { color: var(--ink); font-weight: 600; text-decoration: none; display: flex; align-items: center; gap: 8px; }
-.howto a b { width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; background: var(--green); color: #fff; font-size: 12px; }
-.howto li:nth-child(2) a b { background: var(--blue); }
-.howto li:nth-child(3) a b { background: var(--amber); }
+.howto a b { width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; background: var(--rose); color: #fff; font-size: 12px; }
+.howto li:nth-child(2) a b { background: var(--green); }
+.howto li:nth-child(3) a b { background: var(--blue); }
+.howto li:nth-child(4) a b { background: var(--amber); }
 .howto a:hover { text-decoration: underline; }
 .howto span { color: var(--ink-2); font-size: 13px; padding-left: 30px; }
 
@@ -466,3 +467,7 @@ label.map-check .stop-icon { width: 16px; height: 16px; font-size: 10px; border-
 .key { display: inline-block; width: 12px; height: 6px; border-radius: 3px; vertical-align: middle; }
 .kind-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: baseline; }
 .type-legend button.show-all { justify-content: center; margin-top: 3px; color: var(--accent); font-weight: 600; border: 1px solid currentColor; }
+
+/* Filters and Focus chips sit at the top of the page and apply to every section */
+.top-filters { margin: 0 0 8px; }
+.top-filters .filters { margin-bottom: 8px; }

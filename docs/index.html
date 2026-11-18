@@ -12,8 +12,8 @@
   <nav class="topnav">
     <a class="brand" href="#top">U.S. Traffic Fatality Explorer</a>
     <div class="navlinks">
-      <a href="#g-drive" class="pill" data-accent="green"><i></i>Check your drive</a>
       <a href="#g-glance" class="pill" data-accent="rose"><i></i>At a glance</a>
+      <a href="#g-drive" class="pill" data-accent="green"><i></i>Check your drive</a>
       <a href="#g-map" class="pill" data-accent="blue"><i></i>Map</a>
       <a href="#g-street" class="pill" data-accent="teal"><i></i>Street level</a>
       <a href="#g-patterns" class="pill" data-accent="amber"><i></i>When &amp; weather</a>
@@ -24,19 +24,54 @@
   <header id="top">
     <p class="sub">Every fatal crash on U.S. roads from 1975 to 2024 (NHTSA FARS), so you can see where, when and under what conditions they happen on the roads you drive. The settings bar at the bottom of the screen applies to every view.</p>
     <ol class="howto">
-      <li><a href="#g-drive"><b>1</b> Check your drive</a><span>Crashes along a route you take</span></li>
-      <li><a href="#g-map"><b>2</b> Explore your area</a><span>Search or click your state or county</span></li>
-      <li><a href="#g-patterns"><b>3</b> Dig into patterns</a><span>When, in what weather, and why</span></li>
+      <li><a href="#g-glance"><b>1</b> See the big picture</a><span>National totals and the worst states and counties</span></li>
+      <li><a href="#g-drive"><b>2</b> Check your drive</a><span>Crashes along a route you take</span></li>
+      <li><a href="#g-map"><b>3</b> Explore your area</a><span>Search or click your state or county</span></li>
+      <li><a href="#g-patterns"><b>5</b> Dig into patterns</a><span>When, in what weather, and why</span></li>
     </ol>
     <label class="searchbar">Find a state or county
       <input id="search" type="search" list="places" placeholder="e.g. Harris, Texas" autocomplete="off">
       <datalist id="places"></datalist>
     </label>
+    <div id="top-filters" class="top-filters">
+      <div class="chips-row"><span>Focus on:</span><div class="chips" data-chips></div></div>
+      <details id="filters" class="filters" open>
+        <summary>Filter crashes by factor <span id="filter-count" class="badge">none</span></summary>
+        <div class="filter-body">
+          <div id="filter-grid" class="filter-grid"></div>
+          <div class="filter-foot">
+            <button id="filter-clear" type="button" hidden>Clear all filters</button>
+            <span id="filter-status" class="sub" aria-live="polite"></span>
+          </div>
+          <p class="note">Filters apply to every view on the page. "Involved" means at least one such person or vehicle was in the crash. Alcohol is a police-reported drinking driver; speeding is police-reported speeding-related. Driver distraction is recorded from 2010 and is often marked "not reported", so distraction counts are a lower bound. FARS changed how it codes some factors over the years; see the README for how they were matched up.</p>
+        </div>
+      </details>
+      <p id="filter-gaps" class="gaps"></p>
+    </div>
   </header>
+
+  <section id="g-glance" class="group" data-accent="rose">
+    <div class="group-head">
+      <span class="num">1</span>
+      <div><h2>The United States at a glance</h2><p id="glance-sub" class="sub"></p></div>
+    </div>
+    <div id="kpis" class="kpis"></div>
+    <div class="glance-grid">
+      <section class="card">
+        <h2>Top 10 states</h2>
+        <table id="rank-state"><thead><tr><th>#</th><th>State</th><th class="num rank-col">Value</th><th class="num">Pop.</th></tr></thead><tbody></tbody></table>
+      </section>
+      <section class="card">
+        <h2>Top 10 counties</h2>
+        <table id="rank-county"><thead><tr><th>#</th><th>County</th><th class="num rank-col">Value</th><th class="num">Pop.</th></tr></thead><tbody></tbody></table>
+      </section>
+    </div>
+    <p class="note">Click a row to find it on the map. Counties with fewer than 10,000 residents are left out of the county list, because a handful of crashes makes their rates swing wildly.</p>
+  </section>
 
   <section id="g-drive" class="group" data-accent="green">
     <div class="group-head">
-      <span class="num">1</span>
+      <span class="num">2</span>
       <div><h2>Check your drive</h2><p class="sub">Enter where you start and where you're going to see the fatal crashes recorded along that route (2001 on), which stretches are worst, and how your usual travel time compares.</p></div>
     </div>
     <section id="route" class="block">
@@ -113,25 +148,6 @@
     </section>
   </section>
 
-  <section id="g-glance" class="group" data-accent="rose">
-    <div class="group-head">
-      <span class="num">2</span>
-      <div><h2>The United States at a glance</h2><p id="glance-sub" class="sub"></p></div>
-    </div>
-    <div id="kpis" class="kpis"></div>
-    <div class="glance-grid">
-      <section class="card">
-        <h2>Top 10 states</h2>
-        <table id="rank-state"><thead><tr><th>#</th><th>State</th><th class="num rank-col">Value</th><th class="num">Pop.</th></tr></thead><tbody></tbody></table>
-      </section>
-      <section class="card">
-        <h2>Top 10 counties</h2>
-        <table id="rank-county"><thead><tr><th>#</th><th>County</th><th class="num rank-col">Value</th><th class="num">Pop.</th></tr></thead><tbody></tbody></table>
-      </section>
-    </div>
-    <p class="note">Click a row to find it on the map. Counties with fewer than 10,000 residents are left out of the county list, because a handful of crashes makes their rates swing wildly.</p>
-  </section>
-
   <section id="g-map" class="group" data-accent="blue">
     <div class="group-head">
       <span class="num">3</span>
@@ -147,19 +163,6 @@
       </label>
     </div>
 
-    <div class="chips-row"><span>Focus on:</span><div class="chips" data-chips></div></div>
-    <details id="filters" class="filters">
-      <summary>Filter crashes by factor <span id="filter-count" class="badge">none</span></summary>
-      <div class="filter-body">
-        <div id="filter-grid" class="filter-grid"></div>
-        <div class="filter-foot">
-          <button id="filter-clear" type="button" hidden>Clear all filters</button>
-          <span id="filter-status" class="sub" aria-live="polite"></span>
-        </div>
-        <p class="note">Filters apply to every view on the page. "Involved" means at least one such person or vehicle was in the crash. Alcohol is a police-reported drinking driver; speeding is police-reported speeding-related. Driver distraction is recorded from 2010 and is often marked "not reported", so distraction counts are a lower bound. FARS changed how it codes some factors over the years; see the README for how they were matched up.</p>
-      </div>
-    </details>
-    <p id="filter-gaps" class="gaps"></p>
 
     <main>
       <section class="map-card">

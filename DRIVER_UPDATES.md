@@ -155,6 +155,11 @@ The colors come from the Okabe–Ito palette, which stays distinguishable for co
 - **Highlights:** factors listed under "What stands out" are tagged in the table.
 - **Stays open:** the table updates with the years, filters and trip time. "Hide" closes it.
 
+**17. New page order.**
+- **At a glance first:** "The United States at a glance" is section 1 again and "Check your drive" is section 2. The other sections keep their numbers (3 Map, 4 Street level, 5 When & weather, 6 Compare & evaluate).
+- **Filters at the top:** the "Focus on" chips and the "Filter crashes by factor" panel moved out of the map section to the top of the page, under the search box, because they apply to every section.
+- **Guide:** the guide under the header now has four steps, numbered to match the sections they link to.
+
 Files for items 14–16: `prep/rest_stops.py` (new), `docs/data/rest_stops.json` (new), `prep/factors.py` and `prep/build_data.py` (drowsy flag), `docs/route.js` (rest-stop layer, "Places to take a break" list, drowsy factor, all-statistics table), `docs/county.js` (multi-kind legend), `docs/filters.js` and `docs/compare.js` (drowsy filter, chip and factor), `docs/style.css`.
 
 ### Files changed in round 2
